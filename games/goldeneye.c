@@ -345,7 +345,7 @@ static void GE_Controller(void)
 		/* RandomEye enables GoldenEye's C-Up + C-Down debug-menu shortcut.
 		 * Give forward movement priority when both directions are held, matching
 		 * the retail game's effective movement behaviour without opening it. */
-		CONTROLLER[player].D_CBUTTON = backwards && !(randomeye && forwards);
+		CONTROLLER[player].D_CBUTTON = backwards && !(randomeye && preventrandomeyedebugshortcut && forwards);
 		CONTROLLER[player].L_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFELEFT] || DEVICE[player].BUTTONSEC[STRAFELEFT];
 		CONTROLLER[player].R_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFERIGHT] || DEVICE[player].BUTTONSEC[STRAFERIGHT];
 		CONTROLLER[player].Z_TRIG = DEVICE[player].BUTTONPRIM[FIRE] || DEVICE[player].BUTTONSEC[FIRE] || DEVICE[player].BUTTONPRIM[PREVIOUSWEAPON] || DEVICE[player].BUTTONSEC[PREVIOUSWEAPON];

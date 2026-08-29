@@ -24,6 +24,11 @@ behavior. Retail-only ROM injection hacks are deliberately not written into
 RandomEye because the mod relocates that executable code; direct mouse,
 keyboard, and controller injection still works.
 
+The saved **Prevent RandomEye Debug Shortcut (W+S)** option is enabled by
+default. When forward and backward are pressed together, it gives forward
+movement priority and prevents RandomEye's debug menu from opening. Disable
+the option to restore RandomEye's original W+S shortcut.
+
 No ROMs, ROM patches, game assets, or save files are included.
 
 ## Building

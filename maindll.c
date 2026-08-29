@@ -69,6 +69,7 @@ int overridefov = 60; // fov override
 int overrideratiowidth = 16, overrideratioheight = 9; // ratio override
 int geshowcrosshair = 0; // inject the always show ge crosshair hack on start
 int bypassviewmodelfovtweak = 0; // bypass viewmodel positional tweak for fov override
+int preventrandomeyedebugshortcut = 1; // prevent RandomEye's C-Up + C-Down debug shortcut during normal movement
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 static int Init(const HWND hW);
@@ -349,6 +350,11 @@ static BOOL CALLBACK GUI_Config(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_BYPASSVIEWMODELFOVWEAK:
 					bypassviewmodelfovtweak = SendMessage(GetDlgItem(hW, LOWORD(wParam)), BM_GETCHECK, 0, 0);
 					break;
+#if !PD_DECOMP
+				case IDC_PREVENTRANDOMDEBUGSHORTCUT:
+					preventrandomeyedebugshortcut = SendMessage(GetDlgItem(hW, LOWORD(wParam)), BM_GETCHECK, 0, 0);
+					break;
+#endif
 				case IDC_RATIOHEIGHT:
 				case IDC_RATIOWIDTH:
 					if(stopthread) // do this if game isn't running
@@ -558,6 +564,9 @@ static void GUI_Refresh(const HWND hW, const int revertbtn)
 		EnableWindow(GetDlgItem(hW, index), stopthread);
 	SendMessage(GetDlgItem(hW, IDC_GESHOWCROSSHAIR), BM_SETCHECK, geshowcrosshair ? BST_CHECKED : BST_UNCHECKED, 0); // set checkbox for show crosshair
 	SendMessage(GetDlgItem(hW, IDC_BYPASSVIEWMODELFOVWEAK), BM_SETCHECK, bypassviewmodelfovtweak ? BST_CHECKED : BST_UNCHECKED, 0); // set checkbox for bypass viewmodel fov tweak
+#if !PD_DECOMP
+	SendMessage(GetDlgItem(hW, IDC_PREVENTRANDOMDEBUGSHORTCUT), BM_SETCHECK, preventrandomeyedebugshortcut ? BST_CHECKED : BST_UNCHECKED, 0);
+#endif
 	// revert button
 	if(revertbtn != 2) // 2 is ignore flag
 		EnableWindow(GetDlgItem(hW, IDC_REVERT), revertbtn); // set revert button status
@@ -703,14 +712,20 @@ static void GUI_DetectDevice(const HWND hW, const int buttonid)
 }
 //==========================================================================
 // Purpose: load profile settings (i'm really sorry about this mess)
-// Changed Globals: PROFILE, overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, mouselockonfocus, mouseunlockonloss, mousetogglekey
+// Changed Globals: PROFILE, overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, preventrandomeyedebugshortcut, mouselockonfocus, mouseunlockonloss, mousetogglekey
 //==========================================================================
 static void INI_Load(const HWND hW, const int loadplayer)
 {
 	#define PRIMBTNBLKSIZE (ALLPLAYERS * TOTALBUTTONS) // 4 PLAYERS * BUTTONPRIM
 	#define BUTTONBLKSIZE (ALLPLAYERS * (TOTALBUTTONS + TOTALBUTTONS)) // 4 PLAYERS * (BUTTONPRIM + BUTTONSEC)
 	#define SETTINGBLKSIZE (ALLPLAYERS * TOTALSETTINGS) // 4 PLAYERS * SETTINGS
-	#define TOTALLINES (BUTTONBLKSIZE + SETTINGBLKSIZE + 8) // profile struct[all players] + overridefov + overrideratiowidth + overrideratioheight + geshowcrosshair + bypassviewmodelfovtweak + mouselockonfocus + mouseunlockonloss + mousetogglekey
+	#define GLOBALOFFSET (BUTTONBLKSIZE + SETTINGBLKSIZE)
+#if PD_DECOMP
+	#define TOTALLINES (GLOBALOFFSET + 8)
+#else
+	#define LEGACYTOTALLINES (GLOBALOFFSET + 8)
+	#define TOTALLINES (GLOBALOFFSET + 9)
+#endif
 	FILE *fileptr; // file pointer for mouseinjector ini
 	if((fileptr = fopen(inifilepathdefault, "r")) == NULL) // if INI file was not found
 		fileptr = _wfopen(inifilepath, L"r"); // reattempt to load INI file using wide character filepath
@@ -725,7 +740,11 @@ static void INI_Load(const HWND hW, const int loadplayer)
 			counter++; // add 1 to counter, so the next line can be read
 		}
 		fclose(fileptr); // close the file stream
-		if(counter == TOTALLINES) // check mouseinjector ini if it has the correct new lines
+		if(counter == TOTALLINES
+#if !PD_DECOMP
+			|| counter == LEGACYTOTALLINES
+#endif
+		) // accept the current format and pre-RandomEye settings files
 		{
 			const int safesettings[2][TOTALSETTINGS] = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {3, 100, 5, 18, 1, 1, 1, 1, 16, 16}}; // safe min/max values
 			int everythingisfine = 1; // for now...
@@ -746,14 +765,17 @@ static void INI_Load(const HWND hW, const int loadplayer)
 			{
 				if(loadplayer == ALLPLAYERS) // only load if given ALLPLAYERS flag
 				{
-					overridefov = ClampInt(atoi(line[TOTALLINES - 8]), FOV_MIN, FOV_MAX); // load overridefov
-					overrideratiowidth = ClampInt(atoi(line[TOTALLINES - 7]), 1, 99); // load overrideratiowidth
-					overrideratioheight = ClampInt(atoi(line[TOTALLINES - 6]), 1, 99); // load overrideratioheight
-					geshowcrosshair = !(!atoi(line[TOTALLINES - 5])); // load geshowcrosshair
-					bypassviewmodelfovtweak = !(!atoi(line[TOTALLINES - 4])); // load bypassviewmodelfovtweak
-					mouselockonfocus = !(!atoi(line[TOTALLINES - 3])); // load mouselockonfocus
-					mouseunlockonloss = !(!atoi(line[TOTALLINES - 2])); // load mouseunlockonloss
-					mousetogglekey = ClampInt(atoi(line[TOTALLINES - 1]), 0x00, 0xFF); // load mousetogglekey
+					overridefov = ClampInt(atoi(line[GLOBALOFFSET]), FOV_MIN, FOV_MAX); // load overridefov
+					overrideratiowidth = ClampInt(atoi(line[GLOBALOFFSET + 1]), 1, 99); // load overrideratiowidth
+					overrideratioheight = ClampInt(atoi(line[GLOBALOFFSET + 2]), 1, 99); // load overrideratioheight
+					geshowcrosshair = !(!atoi(line[GLOBALOFFSET + 3])); // load geshowcrosshair
+					bypassviewmodelfovtweak = !(!atoi(line[GLOBALOFFSET + 4])); // load bypassviewmodelfovtweak
+					mouselockonfocus = !(!atoi(line[GLOBALOFFSET + 5])); // load mouselockonfocus
+					mouseunlockonloss = !(!atoi(line[GLOBALOFFSET + 6])); // load mouseunlockonloss
+					mousetogglekey = ClampInt(atoi(line[GLOBALOFFSET + 7]), 0x00, 0xFF); // load mousetogglekey
+#if !PD_DECOMP
+					preventrandomeyedebugshortcut = counter == TOTALLINES ? !(!atoi(line[GLOBALOFFSET + 8])) : 1;
+#endif
 					if(!mousetogglekey || mousetogglekey == 0xFF || mousetogglekey == VK_ESCAPE || mousetogglekey >= VK_LBUTTON && mousetogglekey <= VK_XBUTTON2 || mousetogglekey == VK_WHEELUP || mousetogglekey == VK_WHEELDOWN || mousetogglekey == VK_WHEELRIGHT || mousetogglekey == VK_WHEELLEFT) // if mousetogglekey is set to none/escape/mouse button, reset to default key
 						mousetogglekey = 0x34;
 				}
@@ -820,6 +842,9 @@ static void INI_Save(const HWND hW)
 			for(int index = 0; index < TOTALSETTINGS; index++)
 				fprintf(fileptr, "%d\n", ClampInt(PROFILE[player].SETTINGS[index], 0, 100));
 		fprintf(fileptr, "%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d", overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, mouselockonfocus, mouseunlockonloss, mousetogglekey);
+#if !PD_DECOMP
+		fprintf(fileptr, "\n%d", preventrandomeyedebugshortcut);
+#endif
 		fclose(fileptr); // close the file stream
 	}
 	else // if saving file failed (could be set to read only, antivirus is preventing file writing or filepath is invalid)
@@ -831,7 +856,7 @@ static void INI_Save(const HWND hW)
 }
 //==========================================================================
 // Purpose: reset a player struct or all players
-// Changed Globals: PROFILE, overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, mouselockonfocus, mouseunlockonloss, mousetogglekey, lastinputbutton
+// Changed Globals: PROFILE, overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, preventrandomeyedebugshortcut, mouselockonfocus, mouseunlockonloss, mousetogglekey, lastinputbutton
 //==========================================================================
 static void INI_Reset(const int playerflag)
 {
@@ -850,7 +875,7 @@ static void INI_Reset(const int playerflag)
 			PROFILE[player].SETTINGS[MOUSE] = defaultmouse;
 			PROFILE[player].SETTINGS[KEYBOARD] = defaultkeyboard;
 		}
-		overridefov = 60, overrideratiowidth = 16, overrideratioheight = 9, geshowcrosshair = 0, bypassviewmodelfovtweak = 0, mouselockonfocus = 0, mouseunlockonloss = 1, mousetogglekey = 0x34;
+		overridefov = 60, overrideratiowidth = 16, overrideratioheight = 9, geshowcrosshair = 0, bypassviewmodelfovtweak = 0, mouselockonfocus = 0, mouseunlockonloss = 1, mousetogglekey = 0x34, preventrandomeyedebugshortcut = 1;
 	}
 	else
 	{
