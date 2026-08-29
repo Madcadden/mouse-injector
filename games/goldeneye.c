@@ -336,16 +336,10 @@ static void GE_AimMode(const int player, const int aimingflag, const float fov, 
 //==========================================================================
 static void GE_Controller(void)
 {
-	const int randomeye = GE_IsRandomEye();
 	for(int player = PLAYER1; player < ALLPLAYERS; player++)
 	{
-		const int forwards = DEVICE[player].BUTTONPRIM[FORWARDS] || DEVICE[player].BUTTONSEC[FORWARDS];
-		const int backwards = DEVICE[player].BUTTONPRIM[BACKWARDS] || DEVICE[player].BUTTONSEC[BACKWARDS];
-		CONTROLLER[player].U_CBUTTON = forwards;
-		/* RandomEye enables GoldenEye's C-Up + C-Down debug-menu shortcut.
-		 * Give forward movement priority when both directions are held, matching
-		 * the retail game's effective movement behaviour without opening it. */
-		CONTROLLER[player].D_CBUTTON = backwards && !(randomeye && forwards);
+		CONTROLLER[player].U_CBUTTON = DEVICE[player].BUTTONPRIM[FORWARDS] || DEVICE[player].BUTTONSEC[FORWARDS];
+		CONTROLLER[player].D_CBUTTON = DEVICE[player].BUTTONPRIM[BACKWARDS] || DEVICE[player].BUTTONSEC[BACKWARDS];
 		CONTROLLER[player].L_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFELEFT] || DEVICE[player].BUTTONSEC[STRAFELEFT];
 		CONTROLLER[player].R_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFERIGHT] || DEVICE[player].BUTTONSEC[STRAFERIGHT];
 		CONTROLLER[player].Z_TRIG = DEVICE[player].BUTTONPRIM[FIRE] || DEVICE[player].BUTTONSEC[FIRE] || DEVICE[player].BUTTONPRIM[PREVIOUSWEAPON] || DEVICE[player].BUTTONSEC[PREVIOUSWEAPON];

@@ -24,6 +24,11 @@ behavior. Retail-only ROM injection hacks are deliberately not written into
 RandomEye because the mod relocates that executable code; direct mouse,
 keyboard, and controller injection still works.
 
+This edition preserves RandomEye's original simultaneous forward/backward
+input. Pressing W and S together can therefore activate the mod's original
+debug shortcut. It does not include the optional W+S protection setting from
+the main RandomEye-compatible fork.
+
 No ROMs, ROM patches, game assets, or save files are included.
 
 ## Building
