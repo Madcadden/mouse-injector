@@ -27,6 +27,56 @@
 #define CROSSHAIRLIMIT 5.159373283 // 0x40A51996
 #define TANKXROTATIONLIMIT 6.283185005 // 0x40C90FDA
 #define PI 3.1415927 // 0x40490FDB
+
+/*
+ * Murk's Random-eye-zer relocates GoldenEye's game segment and globals.
+ * Select its address profile from the ROM header CRC so retail GoldenEye,
+ * Goldfinger 64, and the plugin's existing retail hacks remain unchanged.
+ *
+ * RandomEye CRC1/CRC2: B72EDF71/C22234D1
+ */
+typedef struct GE_ADDRESS_PROFILE
+{
+	unsigned int bonddata;
+	unsigned int camera;
+	unsigned int exit;
+	unsigned int pause;
+	unsigned int menupage;
+	unsigned int menux;
+	unsigned int menuy;
+	unsigned int tankxrot;
+	unsigned int tankflag;
+	unsigned int matchended;
+	unsigned int introcounter;
+	unsigned int seenintroflag;
+} GE_ADDRESS_PROFILE;
+
+static const GE_ADDRESS_PROFILE GE_RETAIL_ADDRESSES =
+{
+	0x80079EE0, 0x80036494, 0x800364B0, 0x80048370,
+	0x8002A8C0, 0x8002A908, 0x8002A90C, 0x80036484,
+	0x80036448, 0x8008C700, 0x8002A8CC, 0x8002A930
+};
+
+static const GE_ADDRESS_PROFILE GE_RANDOM_EYE_ADDRESSES =
+{
+	0x8007EAD0, 0x80036734, 0x80036750, 0x80048640,
+	0x8002AA80, 0x8002AAC8, 0x8002AACC, 0x80036724,
+	0x800366E8, 0x800912F0, 0x8002AA8C, 0x8002AAF0
+};
+
+static int GE_IsRandomEye(void)
+{
+	return romptr != 0
+		&& EMU_ReadROM(0x10) == 0xB72EDF71
+		&& EMU_ReadROM(0x14) == 0xC22234D1;
+}
+
+static const GE_ADDRESS_PROFILE *GE_GetAddressProfile(void)
+{
+	return GE_IsRandomEye() ? &GE_RANDOM_EYE_ADDRESSES : &GE_RETAIL_ADDRESSES;
+}
+
 // GOLDENEYE ADDRESSES - OFFSET ADDRESSES BELOW (REQUIRES PLAYERBASE TO USE)
 #define GE_stanceflag 0x800D2FFC - 0x800D2F60
 #define GE_deathflag 0x800D3038 - 0x800D2F60
@@ -42,16 +92,16 @@
 #define GE_currentweapon 0x800D37D0 - 0x800D2F60
 #define GE_multipausemenu 0x800A9D24 - 0x800A7360
 // STATIC ADDRESSES BELOW
-#define BONDDATA(X) (unsigned int)EMU_ReadInt(0x80079EE0 + (X * 0x4)) // player pointer address (0x4 offset for each players)
-#define GE_camera 0x80036494 // camera flag (0 = multiplayer, 1 = map overview, 2 = start flyby, 3 = in flyby, 4 = player in control, 5 = trigger restart map)
-#define GE_exit 0x800364B0 // exit flag (0 = disable controls, 1 = enable controls)
-#define GE_pause 0x80048370 // pause flag (1 = GE is paused)
-#define GE_menupage 0x8002A8C0 // menu page id
-#define GE_menux 0x8002A908 // crosshair menu cursor x axis
-#define GE_menuy 0x8002A90C // crosshair menu cursor y axis
-#define GE_tankxrot 0x80036484 // tank x rotation
-#define GE_tankflag 0x80036448 // tank flag (0 = walking, 1 = in-tank)
-#define GE_matchended 0x8008C700 // multiplayer match flag
+#define BONDDATA(X) (unsigned int)EMU_ReadInt(GE_GetAddressProfile()->bonddata + (X * 0x4)) // player pointer address (0x4 offset for each players)
+#define GE_camera (GE_GetAddressProfile()->camera) // camera flag (0 = multiplayer, 1 = map overview, 2 = start flyby, 3 = in flyby, 4 = player in control, 5 = trigger restart map)
+#define GE_exit (GE_GetAddressProfile()->exit) // exit flag (0 = disable controls, 1 = enable controls)
+#define GE_pause (GE_GetAddressProfile()->pause) // pause flag (1 = GE is paused)
+#define GE_menupage (GE_GetAddressProfile()->menupage) // menu page id
+#define GE_menux (GE_GetAddressProfile()->menux) // crosshair menu cursor x axis
+#define GE_menuy (GE_GetAddressProfile()->menuy) // crosshair menu cursor y axis
+#define GE_tankxrot (GE_GetAddressProfile()->tankxrot) // tank x rotation
+#define GE_tankflag (GE_GetAddressProfile()->tankflag) // tank flag (0 = walking, 1 = in-tank)
+#define GE_matchended (GE_GetAddressProfile()->matchended) // multiplayer match flag
 #define GE_defaultratio 0x80055264 // 16:9 ratio default
 #define GE_defaultratiocrosshair 0x0009F198 // 16:9 crosshair ratio default (rom)
 #define GE_defaultfov 0x000B78BC // field of view default (rom)
@@ -60,8 +110,8 @@
 #define GE_defaultzoomspeed 0x8004F1A8 // default zoom speed
 #define GE_showcrosshair 0x0009F128 // show crosshair code (rom)
 #define GE_crosshairimage 0x0029DE8C // crosshair image (rom)
-#define GE_introcounter 0x8002A8CC // counter for intro
-#define GE_seenintroflag 0x8002A930 // seen intro flag
+#define GE_introcounter (GE_GetAddressProfile()->introcounter) // counter for intro
+#define GE_seenintroflag (GE_GetAddressProfile()->seenintroflag) // seen intro flag
 #define GE_controlstyle 0x000D98FC // instruction reads the current controller style (rom)
 #define GE_reversepitch 0x000D9970 // instruction reads the current reverse pitch option (rom)
 #define GE_pickupyaxisthreshold 0x800532E0 // y axis threshold on picking up weapons
@@ -98,9 +148,10 @@ const GAMEDRIVER *GAME_GOLDENEYE007 = &GAMEDRIVER_INTERFACE;
 //==========================================================================
 int GE_Status(void)
 {
+	const int ge_max_page = GE_IsRandomEye() ? 27 : 25;
 	const int ge_camera = EMU_ReadInt(GE_camera), ge_page = EMU_ReadInt(GE_menupage), ge_pause = EMU_ReadInt(GE_pause), ge_exit = EMU_ReadInt(GE_exit);
 	const float ge_crosshairx = EMU_ReadFloat(GE_menux), ge_crosshairy = EMU_ReadFloat(GE_menuy);
-	return (ge_camera >= 0 && ge_camera <= 10 && ge_page >= -1 && ge_page <= 25 && ge_pause >= 0 && ge_pause <= 1 && ge_exit >= 0 && ge_exit <= 1 && ge_crosshairx >= 20 && ge_crosshairx <= 420 && ge_crosshairy >= 20 && ge_crosshairy <= 310); // if GoldenEye 007 is current game
+	return (ge_camera >= 0 && ge_camera <= 10 && ge_page >= -1 && ge_page <= ge_max_page && ge_pause >= 0 && ge_pause <= 1 && ge_exit >= 0 && ge_exit <= 1 && ge_crosshairx >= 20 && ge_crosshairx <= 420 && ge_crosshairy >= 20 && ge_crosshairy <= 310); // if GoldenEye 007 is current game
 }
 //==========================================================================
 // Purpose: calculate mouse movement and inject into current game
@@ -114,7 +165,9 @@ int GE_Status(void)
 //==========================================================================
 void GE_Inject(void)
 {
-	if(EMU_ReadInt(GE_menupage) < 1) // hacks can only be injected at boot sequence before code blocks are cached, so inject until the main menu
+	/* RandomEye's injected-code locations also moved.  Do not write the retail
+	 * ROM hacks into the mod; direct mouse/controller injection is sufficient. */
+	if(!GE_IsRandomEye() && EMU_ReadInt(GE_menupage) < 1) // hacks can only be injected at boot sequence before code blocks are cached, so inject until the main menu
 		GE_InjectHacks();
 	const int camera = EMU_ReadInt(GE_camera);
 	const int exit = EMU_ReadInt(GE_exit);
@@ -283,10 +336,16 @@ static void GE_AimMode(const int player, const int aimingflag, const float fov, 
 //==========================================================================
 static void GE_Controller(void)
 {
+	const int randomeye = GE_IsRandomEye();
 	for(int player = PLAYER1; player < ALLPLAYERS; player++)
 	{
-		CONTROLLER[player].U_CBUTTON = DEVICE[player].BUTTONPRIM[FORWARDS] || DEVICE[player].BUTTONSEC[FORWARDS];
-		CONTROLLER[player].D_CBUTTON = DEVICE[player].BUTTONPRIM[BACKWARDS] || DEVICE[player].BUTTONSEC[BACKWARDS];
+		const int forwards = DEVICE[player].BUTTONPRIM[FORWARDS] || DEVICE[player].BUTTONSEC[FORWARDS];
+		const int backwards = DEVICE[player].BUTTONPRIM[BACKWARDS] || DEVICE[player].BUTTONSEC[BACKWARDS];
+		CONTROLLER[player].U_CBUTTON = forwards;
+		/* RandomEye enables GoldenEye's C-Up + C-Down debug-menu shortcut.
+		 * Give forward movement priority when both directions are held, matching
+		 * the retail game's effective movement behaviour without opening it. */
+		CONTROLLER[player].D_CBUTTON = backwards && !(randomeye && forwards);
 		CONTROLLER[player].L_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFELEFT] || DEVICE[player].BUTTONSEC[STRAFELEFT];
 		CONTROLLER[player].R_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFERIGHT] || DEVICE[player].BUTTONSEC[STRAFERIGHT];
 		CONTROLLER[player].Z_TRIG = DEVICE[player].BUTTONPRIM[FIRE] || DEVICE[player].BUTTONSEC[FIRE] || DEVICE[player].BUTTONPRIM[PREVIOUSWEAPON] || DEVICE[player].BUTTONSEC[PREVIOUSWEAPON];

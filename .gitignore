@@ -4,5 +4,12 @@
 tmp/
 *.o
 *.dll
+*.z64
+*.n64
+*.v64
+*.sav
+*.eep
+*.fla
+*.sra
 obj
 *.generated.h
