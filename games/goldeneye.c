@@ -65,6 +65,13 @@ static const GE_ADDRESS_PROFILE GE_RANDOM_EYE_ADDRESSES =
 	0x800366E8, 0x800912F0, 0x8002AA8C, 0x8002AAF0
 };
 
+static const GE_ADDRESS_PROFILE GE_STEREO_SFX_ADDRESSES =
+{
+	0x80079EF0, 0x80036494, 0x800364B0, 0x80048370,
+	0x8002A8C0, 0x8002A908, 0x8002A90C, 0x80036484,
+	0x80036448, 0x8008C710, 0x8002A8CC, 0x8002A930
+};
+
 static int GE_IsRandomEye(void)
 {
 	return romptr != 0
@@ -72,9 +79,22 @@ static int GE_IsRandomEye(void)
 		&& EMU_ReadROM(0x14) == 0xC22234D1;
 }
 
+static int GE_IsStereoSFX(void)
+{
+	return romptr != 0
+		&& EMU_ReadROM(0x10) == 0xFDAD2423
+		&& EMU_ReadROM(0x14) == 0x85FBF3E4;
+}
+
 static const GE_ADDRESS_PROFILE *GE_GetAddressProfile(void)
 {
-	return GE_IsRandomEye() ? &GE_RANDOM_EYE_ADDRESSES : &GE_RETAIL_ADDRESSES;
+	if(GE_IsRandomEye())
+		return &GE_RANDOM_EYE_ADDRESSES;
+
+	if(GE_IsStereoSFX())
+		return &GE_STEREO_SFX_ADDRESSES;
+
+	return &GE_RETAIL_ADDRESSES;
 }
 
 // GOLDENEYE ADDRESSES - OFFSET ADDRESSES BELOW (REQUIRES PLAYERBASE TO USE)
@@ -167,7 +187,7 @@ void GE_Inject(void)
 {
 	/* RandomEye's injected-code locations also moved.  Do not write the retail
 	 * ROM hacks into the mod; direct mouse/controller injection is sufficient. */
-	if(!GE_IsRandomEye() && EMU_ReadInt(GE_menupage) < 1) // hacks can only be injected at boot sequence before code blocks are cached, so inject until the main menu
+	if(!GE_IsRandomEye() && !GE_IsStereoSFX() && EMU_ReadInt(GE_menupage) < 1) // hacks can only be injected at boot sequence before code blocks are cached, so inject until the main menu
 		GE_InjectHacks();
 	const int camera = EMU_ReadInt(GE_camera);
 	const int exit = EMU_ReadInt(GE_exit);
