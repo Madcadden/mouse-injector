@@ -28,13 +28,6 @@
 #define TANKXROTATIONLIMIT 6.283185005 // 0x40C90FDA
 #define PI 3.1415927 // 0x40490FDB
 
-/*
- * Murk's Random-eye-zer relocates GoldenEye's game segment and globals.
- * Select its address profile from the ROM header CRC so retail GoldenEye,
- * Goldfinger 64, and the plugin's existing retail hacks remain unchanged.
- *
- * RandomEye CRC1/CRC2: B72EDF71/C22234D1
- */
 typedef struct GE_ADDRESS_PROFILE
 {
 	unsigned int bonddata;
@@ -58,19 +51,179 @@ static const GE_ADDRESS_PROFILE GE_RETAIL_ADDRESSES =
 	0x80036448, 0x8008C700, 0x8002A8CC, 0x8002A930
 };
 
-static const GE_ADDRESS_PROFILE GE_RANDOM_EYE_ADDRESSES =
-{
-	0x8007EAD0, 0x80036734, 0x80036750, 0x80048640,
-	0x8002AA80, 0x8002AAC8, 0x8002AACC, 0x80036724,
-	0x800366E8, 0x800912F0, 0x8002AA8C, 0x8002AAF0
-};
+/*
+ * Resolve the globals used by mouse injection from stable startup-code
+ * patterns. Every anchor must occur exactly once; otherwise the original
+ * retail profile is retained and GE_Status() still has to validate it.
+ */
+#define GE_ROM_SCAN_LIMIT 0x00200000
 
-static const GE_ADDRESS_PROFILE GE_STEREO_SFX_ADDRESSES =
+static const unsigned int gemenupattern[5] = {0x3C013F80, 0x44810000, 0x2402FFFF, 0x3C010000, 0xAC220000};
+static const unsigned int gemenumask[5] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000};
+static const unsigned int gebonddatapattern[10] = {0x0C000000, 0x0000A025, 0x1840001B, 0x00147080, 0x3C0F0000, 0x25EF0000, 0x01CF9021, 0x24130750, 0x00008825, 0x8E580000};
+static const unsigned int gebonddatamask[10] = {0xFC000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+static const unsigned int gecamerapattern[13] = {0x3C010000, 0xE4260000, 0x3C010000, 0xE4280000, 0x3C010000, 0xAC200000, 0x3C010000, 0x240D0001, 0xAC2D0000, 0x3C010000, 0xAC200000, 0x3C010000, 0xAC200000};
+static const unsigned int gecameramask[13] = {0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000};
+static const unsigned int gepausepattern[12] = {0x3C013F80, 0x44816000, 0x24020001, 0x3C010000, 0x27BDFFC8, 0xAC220000, 0xAFB10024, 0x3C010000, 0x3C110000, 0xAC200000, 0x26310000, 0xAE220000};
+static const unsigned int gepausemask[12] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF};
+
+#ifndef SPEEDRUN_BUILD
+typedef struct GE_RELOAD_HACK_PROFILE
 {
-	0x80079EF0, 0x80036494, 0x800364B0, 0x80048370,
-	0x8002A8C0, 0x8002A908, 0x8002A90C, 0x80036484,
-	0x80036448, 0x8008C710, 0x8002A8CC, 0x8002A930
-};
+	unsigned int reloadflag;
+	unsigned int inputmask;
+	unsigned int playercheck;
+	unsigned int weaponstate;
+	unsigned int reloadlogic;
+	unsigned int playerhigh;
+	unsigned int playerlow;
+	unsigned int controllow;
+	unsigned int reloadcall;
+	unsigned int weaponstatecall;
+} GE_RELOAD_HACK_PROFILE;
+
+static const unsigned int gereloadinputpattern[5] = {0x8FA20060, 0x8D830124, 0x304F4000, 0x000F702B, 0x2C650001};
+static const unsigned int gereloadinputmask[5] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+static const unsigned int gereloadplayerpattern[10] = {0x8FAB01B0, 0x11600095, 0x3C0D0000, 0x8DAD0000, 0x24010001, 0x3C0C0000, 0x15A1002E, 0x3C020000, 0x8D8C0000, 0x24040020};
+static const unsigned int gereloadplayermask[10] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF};
+static const unsigned int gereloadflagpattern[8] = {0xAC200000, 0x10000005, 0x8FAC0144, 0x8E0D0000, 0x240B0001, 0xADAB00D0, 0x8FAC0144, 0x1580000B};
+static const unsigned int gereloadflagmask[8] = {0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+static const unsigned int gereloadweaponpattern[8] = {0x3C0E0000, 0x8DCE0000, 0x03E00008, 0x8DC200D0, 0x3C0E0000, 0x8DCE0000, 0x03E00008, 0xA1C412B6};
+static const unsigned int gereloadweaponmask[8] = {0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF, 0xFFFFFFFF};
+static const unsigned int gereloadlogicpattern[11] = {0x00000000, 0x10400009, 0x00000000, 0x0C000000, 0x00000000, 0x10400005, 0x00000000, 0x0C000000, 0x00002025, 0x0C000000, 0x24040001};
+static const unsigned int gereloadlogicmask[11] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF, 0xFC000000, 0xFFFFFFFF};
+#endif
+
+static int GE_ROMPatternMatches(const unsigned int offset, const unsigned int *pattern, const unsigned int *mask, const unsigned int wordcount)
+{
+	for(unsigned int index = 0; index < wordcount; index++)
+	{
+		if((EMU_ReadROM(offset + index * 4) & mask[index]) != (pattern[index] & mask[index]))
+			return 0;
+	}
+	return 1;
+}
+
+static unsigned int GE_FindUniqueROMPattern(const unsigned int *pattern, const unsigned int *mask, const unsigned int wordcount)
+{
+	const unsigned int bytecount = wordcount * 4;
+	unsigned int match = 0;
+
+	if(romptr == 0 || bytecount > GE_ROM_SCAN_LIMIT)
+		return 0;
+
+	for(unsigned int offset = 0x1000; offset <= GE_ROM_SCAN_LIMIT - bytecount; offset += 4)
+	{
+		if(GE_ROMPatternMatches(offset, pattern, mask, wordcount))
+		{
+			if(match != 0)
+				return 0;
+			match = offset;
+		}
+	}
+
+	return match;
+}
+
+#ifndef SPEEDRUN_BUILD
+static int GE_ResolveReloadHack(GE_RELOAD_HACK_PROFILE *profile)
+{
+	const unsigned int inputmatch = GE_FindUniqueROMPattern(gereloadinputpattern, gereloadinputmask, 5);
+	const unsigned int playermatch = GE_FindUniqueROMPattern(gereloadplayerpattern, gereloadplayermask, 10);
+	const unsigned int flagmatch = GE_FindUniqueROMPattern(gereloadflagpattern, gereloadflagmask, 8);
+	const unsigned int weaponmatch = GE_FindUniqueROMPattern(gereloadweaponpattern, gereloadweaponmask, 8);
+	const unsigned int logicmatch = GE_FindUniqueROMPattern(gereloadlogicpattern, gereloadlogicmask, 11);
+
+	if(inputmatch == 0 || playermatch == 0 || flagmatch == 0 || weaponmatch == 0 || logicmatch == 0)
+		return 0;
+
+	/* Both calls reload the same weapon-state function. */
+	if(EMU_ReadROM(logicmatch + 0x1C) != EMU_ReadROM(logicmatch + 0x24))
+		return 0;
+
+	profile->reloadflag = flagmatch + 0x10;
+	profile->inputmask = inputmatch + 0x08;
+	profile->playercheck = playermatch + 0x08;
+	profile->weaponstate = weaponmatch;
+	profile->reloadlogic = logicmatch;
+	profile->playerhigh = EMU_ReadROM(profile->playercheck) & 0xFFFF;
+	profile->playerlow = EMU_ReadROM(profile->playercheck + 0x04) & 0xFFFF;
+	profile->controllow = EMU_ReadROM(profile->playercheck + 0x18) & 0xFFFF;
+	profile->reloadcall = EMU_ReadROM(profile->reloadlogic + 0x0C);
+	profile->weaponstatecall = EMU_ReadROM(profile->reloadlogic + 0x1C);
+	return 1;
+}
+
+static const GE_RELOAD_HACK_PROFILE *GE_GetReloadHackProfile(void)
+{
+	static GE_RELOAD_HACK_PROFILE resolved;
+	static unsigned int cachedcrc1 = 0;
+	static unsigned int cachedcrc2 = 0;
+	static int initialized = 0;
+	static int valid = 0;
+	unsigned int crc1;
+	unsigned int crc2;
+
+	if(romptr == 0)
+		return 0;
+
+	crc1 = EMU_ReadROM(0x10);
+	crc2 = EMU_ReadROM(0x14);
+	if(!initialized || crc1 != cachedcrc1 || crc2 != cachedcrc2)
+	{
+		initialized = 1;
+		cachedcrc1 = crc1;
+		cachedcrc2 = crc2;
+		valid = GE_ResolveReloadHack(&resolved);
+	}
+
+	return valid ? &resolved : 0;
+}
+#endif
+
+static unsigned int GE_MakeAddress(const unsigned int lui, const unsigned int lowinstruction)
+{
+	return ((lui & 0xFFFF) << 16) + (int)(short)(lowinstruction & 0xFFFF);
+}
+
+static int GE_ResolveAddressProfile(GE_ADDRESS_PROFILE *profile)
+{
+	unsigned int menumatch;
+	unsigned int bondmatch;
+	unsigned int cameramatch;
+	unsigned int pausematch;
+
+	if(romptr == 0 || EMU_ReadROM(0x20) != 0x474F4C44)
+		return 0;
+
+	menumatch = GE_FindUniqueROMPattern(gemenupattern, gemenumask, 5);
+	bondmatch = GE_FindUniqueROMPattern(gebonddatapattern, gebonddatamask, 10);
+	cameramatch = GE_FindUniqueROMPattern(gecamerapattern, gecameramask, 13);
+	pausematch = GE_FindUniqueROMPattern(gepausepattern, gepausemask, 12);
+
+	if(menumatch == 0 || bondmatch == 0 || cameramatch == 0 || pausematch == 0)
+		return 0;
+
+	profile->menupage = GE_MakeAddress(EMU_ReadROM(menumatch + 0x0C), EMU_ReadROM(menumatch + 0x10));
+	profile->bonddata = GE_MakeAddress(EMU_ReadROM(bondmatch + 0x10), EMU_ReadROM(bondmatch + 0x14));
+	profile->camera = GE_MakeAddress(EMU_ReadROM(cameramatch + 0x2C), EMU_ReadROM(cameramatch + 0x30));
+	profile->pause = GE_MakeAddress(EMU_ReadROM(pausematch + 0x1C), EMU_ReadROM(pausematch + 0x24));
+
+	profile->exit = profile->camera + 0x1C;
+	profile->menux = profile->menupage + 0x48;
+	profile->menuy = profile->menupage + 0x4C;
+	profile->tankxrot = profile->camera - 0x10;
+	profile->tankflag = profile->camera - 0x4C;
+	profile->matchended = profile->bonddata + 0x12820;
+	profile->introcounter = profile->menupage + 0x0C;
+	profile->seenintroflag = profile->menupage + 0x70;
+
+	return (profile->bonddata & 0xFF800000U) == 0x80000000U
+		&& (profile->camera & 0xFF800000U) == 0x80000000U
+		&& (profile->pause & 0xFF800000U) == 0x80000000U
+		&& (profile->menupage & 0xFF800000U) == 0x80000000U
+		&& (profile->matchended & 0xFF800000U) == 0x80000000U;
+}
 
 static int GE_IsRandomEye(void)
 {
@@ -79,22 +232,30 @@ static int GE_IsRandomEye(void)
 		&& EMU_ReadROM(0x14) == 0xC22234D1;
 }
 
-static int GE_IsStereoSFX(void)
-{
-	return romptr != 0
-		&& EMU_ReadROM(0x10) == 0xFDAD2423
-		&& EMU_ReadROM(0x14) == 0x85FBF3E4;
-}
-
 static const GE_ADDRESS_PROFILE *GE_GetAddressProfile(void)
 {
-	if(GE_IsRandomEye())
-		return &GE_RANDOM_EYE_ADDRESSES;
+	static GE_ADDRESS_PROFILE resolved;
+	static unsigned int cachedcrc1 = 0;
+	static unsigned int cachedcrc2 = 0;
+	static int initialized = 0;
+	static int valid = 0;
+	unsigned int crc1;
+	unsigned int crc2;
 
-	if(GE_IsStereoSFX())
-		return &GE_STEREO_SFX_ADDRESSES;
+	if(romptr == 0)
+		return &GE_RETAIL_ADDRESSES;
 
-	return &GE_RETAIL_ADDRESSES;
+	crc1 = EMU_ReadROM(0x10);
+	crc2 = EMU_ReadROM(0x14);
+	if(!initialized || crc1 != cachedcrc1 || crc2 != cachedcrc2)
+	{
+		initialized = 1;
+		cachedcrc1 = crc1;
+		cachedcrc2 = crc2;
+		valid = GE_ResolveAddressProfile(&resolved);
+	}
+
+	return valid ? &resolved : &GE_RETAIL_ADDRESSES;
 }
 
 // GOLDENEYE ADDRESSES - OFFSET ADDRESSES BELOW (REQUIRES PLAYERBASE TO USE)
@@ -168,7 +329,7 @@ const GAMEDRIVER *GAME_GOLDENEYE007 = &GAMEDRIVER_INTERFACE;
 //==========================================================================
 int GE_Status(void)
 {
-	const int ge_max_page = GE_IsRandomEye() ? 27 : 25;
+	const int ge_max_page = 27;
 	const int ge_camera = EMU_ReadInt(GE_camera), ge_page = EMU_ReadInt(GE_menupage), ge_pause = EMU_ReadInt(GE_pause), ge_exit = EMU_ReadInt(GE_exit);
 	const float ge_crosshairx = EMU_ReadFloat(GE_menux), ge_crosshairy = EMU_ReadFloat(GE_menuy);
 	return (ge_camera >= 0 && ge_camera <= 10 && ge_page >= -1 && ge_page <= ge_max_page && ge_pause >= 0 && ge_pause <= 1 && ge_exit >= 0 && ge_exit <= 1 && ge_crosshairx >= 20 && ge_crosshairx <= 420 && ge_crosshairy >= 20 && ge_crosshairy <= 310); // if GoldenEye 007 is current game
@@ -185,9 +346,7 @@ int GE_Status(void)
 //==========================================================================
 void GE_Inject(void)
 {
-	/* RandomEye's injected-code locations also moved.  Do not write the retail
-	 * ROM hacks into the mod; direct mouse/controller injection is sufficient. */
-	if(!GE_IsRandomEye() && !GE_IsStereoSFX() && EMU_ReadInt(GE_menupage) < 1) // hacks can only be injected at boot sequence before code blocks are cached, so inject until the main menu
+	if(EMU_ReadInt(GE_menupage) < 1) // hacks can only be injected at boot sequence before code blocks are cached, so inject until the main menu
 		GE_InjectHacks();
 	const int camera = EMU_ReadInt(GE_camera);
 	const int exit = EMU_ReadInt(GE_exit);
@@ -389,15 +548,81 @@ static void GE_Controller(void)
 //==========================================================================
 // Purpose: inject hacks into rom before code has been cached
 //==========================================================================
+static int GE_RetailHacksAreSafe(void)
+{
+	static const unsigned int addresses[27] = {0x000B7EA0, 0x000B7EB8, 0x0009C7F8, 0x0009C7FC, 0x0009C80C, 0x0009C810, 0x0009C998, 0x0009C99C, 0x0009C9AC, 0x0009C9B0, 0x000AE4DC, 0x000AE4E0, 0x000AE4E4, 0x000AE4E8, 0x000AE4EC, 0x000AE4F0, 0x000AE4F4, 0x000AE4F8, 0x000AE4FC, 0x000AE500, 0x000AE504, 0x000AE508, 0x000AE50C, 0x000AE510, 0x000AE514, 0x000AE518, 0x000AE51C};
+	static const unsigned int expected[27] = {0x0FC1E66B, 0x0FC1E66B, 0x460C5100, 0xE4440FF0, 0x460E3280, 0xE44A0FF4, 0x460C4100, 0xE4441004, 0x460E5200, 0xE4481008, 0x3C058008, 0x24A5A0B0, 0x8CA20000, 0x8C4E009C, 0x01C47821, 0xAC4F009C, 0x8CA20000, 0x8C43009C, 0x04610003, 0x28610003, 0x03E00008, 0xAC40009C, 0x14200002, 0x24180002, 0xAC58009C, 0x03E00008, 0x00000000};
+
+	for(int index = 0; index < 27; index++)
+	{
+		if(EMU_ReadROM(addresses[index]) != expected[index])
+			return 0;
+	}
+
+	return 1;
+}
+
+#ifndef SPEEDRUN_BUILD
+static void GE_InjectReloadHack(void)
+{
+	const GE_RELOAD_HACK_PROFILE *profile = GE_GetReloadHackProfile();
+	unsigned int playercode[7];
+	unsigned int logiccode[11];
+	if(profile == 0)
+		return;
+
+	playercode[0] = 0x330D4000;
+	playercode[1] = 0x51A00091;
+	playercode[2] = 0x8E0D0000;
+	playercode[3] = 0x3C020000 | profile->playerhigh;
+	playercode[4] = 0x8C4D0000 | profile->playerlow;
+	playercode[5] = 0x11A0002D;
+	playercode[6] = 0x8C4C0000 | profile->controllow;
+
+	logiccode[0] = 0x8E020000;
+	logiccode[1] = 0x51600005;
+	logiccode[2] = 0x00000000;
+	logiccode[3] = profile->weaponstatecall;
+	logiccode[4] = 0x00002025;
+	logiccode[5] = profile->weaponstatecall;
+	logiccode[6] = 0x24040001;
+	logiccode[7] = 0x11400003;
+	logiccode[8] = 0x00000000;
+	logiccode[9] = profile->reloadcall;
+	logiccode[10] = 0x00000000;
+
+	EMU_WriteROM(profile->reloadflag, 0x8FAB01C8);
+	EMU_WriteROM(profile->inputmask, 0x304F4040);
+	for(int index = 0; index < 7; index++)
+		EMU_WriteROM(profile->playercheck + index * 4, playercode[index]);
+	EMU_WriteROM(profile->weaponstate, 0x8C4200D0);
+	EMU_WriteROM(profile->weaponstate + 0x04, 0x304B0040);
+	EMU_WriteROM(profile->weaponstate + 0x0C, 0x304A4000);
+	for(int index = 0; index < 11; index++)
+		EMU_WriteROM(profile->reloadlogic + index * 4, logiccode[index]);
+}
+#endif
+
 static void GE_InjectHacks(void)
 {
+#ifndef SPEEDRUN_BUILD
+	GE_InjectReloadHack();
+#endif
+
+	if(!GE_RetailHacksAreSafe())
+	{
+		if(CONTROLLER[PLAYER1].Z_TRIG && CONTROLLER[PLAYER1].R_TRIG)
+		{
+			EMU_WriteInt(GE_introcounter, 0x00001000);
+			EMU_WriteInt(GE_seenintroflag, 0);
+		}
+		return;
+	}
+
 	const int addressarray[27] = {0x000B7EA0, 0x000B7EB8, 0x0009C7F8, 0x0009C7FC, 0x0009C80C, 0x0009C810, 0x0009C998, 0x0009C99C, 0x0009C9AC, 0x0009C9B0, 0x000AE4DC, 0x000AE4E0, 0x000AE4E4, 0x000AE4E8, 0x000AE4EC, 0x000AE4F0, 0x000AE4F4, 0x000AE4F8, 0x000AE4FC, 0x000AE500, 0x000AE504, 0x000AE508, 0x000AE50C, 0x000AE510, 0x000AE514, 0x000AE518, 0x000AE51C}, codearray[27] = {0x00000000, 0x00000000, 0x0BC1E66B, 0x460C5100, 0x0BC1E66F, 0x460E3280, 0x0BC1E673, 0x460C4100, 0x0BC1E677, 0x460E5200, 0x8C590124, 0x53200001, 0xE4440FF0, 0x0BC19F34, 0x8C590124, 0x53200001, 0xE44A0FF4, 0x0BC19F39, 0x8C590124, 0x53200001, 0xE4441004, 0x0BC19F9C, 0x8C590124, 0x53200001, 0xE4481008, 0x0BC19FA1, 0x00000000}; // disable autostand code, add branch to crosshair code so cursor aiming mode is absolute (without jitter)
 	for(int index = 0; index < 27; index++) // inject code array
 		EMU_WriteROM(addressarray[index], codearray[index]);
 #ifndef SPEEDRUN_BUILD // gives unfair advantage, remove for speedrun build
-	const int reloadhack_address[23] = {0x000B7754, 0x000B6EC0, 0x000B7508, 0x000B750C, 0x000B7510, 0x000B7514, 0x000B7518, 0x000B751C, 0x000B7520, 0x000BEA68, 0x000BEA6C, 0x000BEA74, 0x000F30FC, 0x000F3100, 0x000F3104, 0x000F3108, 0x000F310C, 0x000F3110, 0x000F3114, 0x000F3118, 0x000F311C, 0x000F3120, 0x000F3124}, reloadhack_code[23] = {0x8FAB01C8, 0x304F4040, 0x330D4000, 0x51A00091, 0x8E0D0000, 0x3C028003, 0x8C4D6448, 0x11A0002D, 0x8C4C6450, 0x8C4200D0, 0x304B0040, 0x304A4000, 0x8E020000, 0x51600005, 0x00000000, 0x0FC17659, 0x00002025, 0x0FC17659, 0x24040001, 0x11400003, 0x00000000, 0x0FC0F13C, 0x00000000}; // add reload button hack
-	for(int index = 0; index < 23; index++) // inject code array
-		EMU_WriteROM(reloadhack_address[index], reloadhack_code[index]);
 	if((unsigned int)EMU_ReadROM(GE_controlstyle) == 0x8DC22A58) // if safe to overwrite
 		EMU_WriteROM(GE_controlstyle, 0x34020001); // always force game to use 1.2 control style
 	if((unsigned int)EMU_ReadROM(GE_reversepitch) == 0x8C420A84) // if safe to overwrite
