@@ -3,31 +3,25 @@
 
 This is a fork with support for Perfect Dark decomp.
 
-## Random-Eye-zer support
+## GoldenEye ROM-mod support
 
-This fork also supports Murk-17's
-[Random-Eye-zer: The True Randomizer](https://www.moddb.com/mods/random-eye-the-true-randomizer)
-when used with a RandomEye-compatible 1964 GEPD build.
+This fork resolves GoldenEye addresses and injection points from unique ROM
+code patterns at runtime. This supports compatible ROM mods without requiring
+a CRC-specific profile for each release, including Murk-17's
+[Random-Eye-zer: The True Randomizer](https://www.moddb.com/mods/random-eye-the-true-randomizer).
 
-The plugin detects RandomEye using ROM CRC `B72EDF71/C22234D1` and selects a
-separate verified address profile for:
+The automatically resolved data includes:
 
 - Player pointers and controls
 - Camera, pause, and exit state
 - Menu page and mouse cursor coordinates
 - Tank and multiplayer state
 - Intro state
-- RandomEye's additional menu pages, including Randomiser Options
+- Reload injection points
 
-Retail GoldenEye, Goldfinger 64, and Perfect Dark retain their existing
-behavior. Retail-only ROM injection hacks are deliberately not written into
-RandomEye because the mod relocates that executable code; direct mouse,
-keyboard, and controller injection still works.
-
-The saved **Prevent RandomEye Debug Shortcut (W+S)** option is enabled by
-default. When forward and backward are pressed together, it gives forward
-movement priority and prevents RandomEye's debug menu from opening. Disable
-the option to restore RandomEye's original W+S shortcut.
+Legacy retail-only ROM patches are written only when their original
+instructions are present. Direct mouse, keyboard, controller, and reload
+support use the automatically resolved layout.
 
 No ROMs, ROM patches, game assets, or save files are included.
 

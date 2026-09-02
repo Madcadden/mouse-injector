@@ -124,5 +124,4 @@
 #define IDC_DETECTDEVICE                        199
 #define IDC_LOCKONFOCUS                         200
 #define IDC_UNLOCKONWINLOSS                     201
-#define IDC_PREVENTRANDOMDEBUGSHORTCUT          202
 #define IDC_PARTITION                           IDC_STATIC

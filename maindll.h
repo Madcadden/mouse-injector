@@ -48,4 +48,3 @@ extern int overridefov;
 extern int overrideratiowidth, overrideratioheight;
 extern int geshowcrosshair;
 extern int bypassviewmodelfovtweak;
-extern int preventrandomeyedebugshortcut;
