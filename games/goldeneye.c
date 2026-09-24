@@ -28,6 +28,13 @@
 #define TANKXROTATIONLIMIT 6.283185005 // 0x40C90FDA
 #define PI 3.1415927 // 0x40490FDB
 
+typedef struct GE_MAPMAKER_PROFILE
+{
+	unsigned int page, yaw, pitch, menu, freemode, preview;
+	unsigned int nextpage, nextpagealt, pitchmin, pitchmax;
+	unsigned int menu_selection, menu_tool, chooser_page, chooser_selection;
+} GE_MAPMAKER_PROFILE;
+
 typedef struct GE_ADDRESS_PROFILE
 {
 	unsigned int bonddata;
@@ -38,11 +45,14 @@ typedef struct GE_ADDRESS_PROFILE
 	unsigned int maxpage;
 	unsigned int menux;
 	unsigned int menuy;
+	unsigned int erase_selection;
 	unsigned int tankxrot;
 	unsigned int tankflag;
 	unsigned int matchended;
 	unsigned int introcounter;
 	unsigned int seenintroflag;
+	GE_MAPMAKER_PROFILE mapmaker;
+	int native_reload;
 } GE_ADDRESS_PROFILE;
 
 static const GE_ADDRESS_PROFILE GE_UNRESOLVED_ADDRESSES = {0};
@@ -317,6 +327,392 @@ static unsigned int GE_FindMenuMaxPage(const unsigned int menupage)
 	return count > 28 ? count - 1 : 27;
 }
 
+/* Plus's Map Maker has a separate camera. Recognize its actual input and
+ * selection code; an extended menu number alone is not a Map Maker profile.
+ * Calls and address operands may relocate, but instruction flow must agree. */
+static const unsigned int gemapmakerinputpattern[30] = {
+	0x27BDFFB8,0xAFBF0014,0x00002025,0x0C000000,0x3405FFFF,0x00002025,
+	0x3405FFFF,0x0C000000,0xAFA20044,0xAFA20040,0x0C000000,0x00002025,
+	0xAFA2003C,0x0C000000,0x00002025,0x3C0E0000,0x8DCE0000,0x8FA70044,
+	0xAFA20038,0x11C00005,0x3C040000,0x0C000000,0x00000000,0x100004A5,
+	0x00001025,0x24840000,0x8C8F0000,0x30F81000,0x11E0011C,0x00000000
+};
+static const unsigned int gemapmakerinputmask[30] = {
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFFFFFFFF,
+	0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,
+	0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,0xFFFFFFFF,
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFC000000,0xFFFFFFFF,0xFFFFFFFF,
+	0xFFFFFFFF,0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+};
+static const unsigned int gemapmakermodepattern[24] = {
+	0x3C0A0000,0x8D4A0000,0x11400015,0x30EB0020,0x1160000F,0x3C0C0000,
+	0x8D8C0000,0x24010001,0x3C0D0000,0x15810005,0x00000000,0x0C000000,
+	0xAFA70044,0x10000006,0x8FA70044,0x8DAD0000,0x3C010000,0x25AE0000,
+	0x31CF0003,0xAC2F0000,0x0C000000,0xAFA70044,0x100000E2,0x8FA70044
+};
+static const unsigned int gemapmakermodemask[24] = {
+	0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,
+	0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,0xFFFF0000,
+	0xFFFFFFFF,0xFFFF0000,0xFC000000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+};
+static const unsigned int gemapmakerlookpattern[56] = {
+	0x27BDFFA0,0xAFBF0024,0xAFB00020,0xF7B40018,0x00002025,0x0C000000,
+	0x24050010,0x3C014140,0x4481A000,0xAFA2004C,0x0C000000,0x27A40050,
+	0x3C010000,0x3C0E0000,0xC4220000,0x8DCE0000,0x3C010000,0xC4280000,
+	0xC7A60058,0x448E2000,0x3C100000,0x46083282,0x26100000,0xC6120000,
+	0x3C010000,0xC7A6005C,0x3C020000,0x46802020,0x24420000,0x46005402,
+	0x46109101,0xC4500000,0xE6040000,0xC4280000,0x3C010000,0x46083282,
+	0x00000000,0x46005482,0x46128100,0xE4440000,0xC44C0000,0x4602603C,
+	0x00000000,0x45000003,0x00000000,0xE4420000,0xC44C0000,0xC4200000,
+	0x460C003C,0x00000000,0x45000003,0x00000000,0xE4400000,0xC44C0000,
+	0x0C000000,0x00000000
+};
+static const unsigned int gemapmakerlookmask[56] = {
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,
+	0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,
+	0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,
+	0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,0xFFFFFFFF,
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,
+	0xFC000000,0xFFFFFFFF
+};
+static const unsigned int gemapmakerselectpattern[19] = {
+	0x3059B000,0x13200011,0x00000000,0x8C880000,0x00002025,0x14680003,
+	0x00000000,0x10000001,0x24040001,0x0C000000,0x00000000,0x24040000,
+	0x0C000000,0x00002825,0x3C040000,0x8C840000,0x2405002B,0x0C000000,
+	0x00003025
+};
+static const unsigned int gemapmakerselectmask[19] = {
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFFFF0000,
+	0xFC000000,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFC000000,
+	0xFFFFFFFF
+};
+static const unsigned int gemapmakerchangepattern[15] = {
+	0x2401000B,0x10810003,0x240E0001,0x2401001A,0x14810002,0x3C010000,
+	0xAC2E0000,0x10A00004,0x3C010000,0x3C010000,0x03E00008,0xAC240000,
+	0xAC240000,0x03E00008,0x00000000
+};
+static const unsigned int gemapmakerchangemask[15] = {
+	0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,
+	0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFF0000,
+	0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF
+};
+static unsigned int GE_MapMakerCallTarget(const unsigned int word)
+{
+	return 0x80000000U | ((word & 0x03FFFFFFU) << 2);
+}
+
+static int GE_MapMakerDataAddress(const unsigned int address)
+{
+	return (address & 0xFF800003U) == 0x80000000U;
+}
+
+/* The editor draws the frontend cursor, but handles only digital buttons.
+ * Resolve its independent row selectors from both input and drawing code.
+ * These optional menu anchors must not disable the already-verified camera. */
+static unsigned int GE_MapMakerMenuGetter(const unsigned int call, const unsigned int codebase)
+{
+	const unsigned int target = GE_MapMakerCallTarget(call);
+	unsigned int offset, address;
+	if(target < codebase || target - codebase > GE_ROM_SCAN_LIMIT - 12) return 0;
+	offset = target - codebase;
+	if((EMU_ReadROM(offset) & 0xFFFF0000U) != 0x3C020000U
+		|| EMU_ReadROM(offset + 4) != 0x03E00008U
+		|| (EMU_ReadROM(offset + 8) & 0xFFFF0000U) != 0x8C420000U) return 0;
+	address = GE_MakeAddress(EMU_ReadROM(offset), EMU_ReadROM(offset + 8));
+	return GE_MapMakerDataAddress(address) ? address : 0;
+}
+
+static void GE_ResolveMapMakerMenus(GE_ADDRESS_PROFILE *profile, const unsigned int input,
+	const unsigned int mode, const unsigned int select, const unsigned int change, const unsigned int codebase)
+{
+	static const unsigned int navigationpattern[25] = {
+		0x1320000A,0x30ED0404,0x3C030000,0x24630000,0x8C6A0000,0x2401000E,
+		0x254B000D,0x0161001A,0x00006010,0xAC6C0000,0x00000000,0x3C030000,
+		0x11A00008,0x24630000,0x8C6E0000,0x2401000E,0x25CF0001,0x01E1001A,
+		0x0000C010,0xAC780000,0x00000000,0x8C620000,0x24010003,0x30F9A300,
+		0x5441000D
+	};
+	static const unsigned int navigationmask[25] = {
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,
+		0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF
+	};
+	static const unsigned int renderpattern[55] = {
+		0x0C000000,0x00000000,0x14530004,0x24050044,0x240C0148,0x10000003,
+		0xAFAC00A0,0x240D0174,0xAFAD00A0,0x240E0140,0x240F00F0,0xAFAF0014,
+		0xAFAE0010,0x8FA40150,0x2406001C,0x0C000000,0x8FA700A0,0x3C18FFE0,
+		0x371870FF,0x3C070000,0xAFA20150,0x24E70000,0xAFB80010,0x00402025,
+		0x2405005C,0x0C000000,0x24060022,0x0C000000,0xAFA20150,0x3C080000,
+		0x25110000,0x0002C880,0x00025080,0x01515821,0x03314821,0x3C15D0D0,
+		0x00409825,0x36B5D0FF,0xAFA9006C,0xAFAB0068,0x24140036,0x8FAC006C,
+		0x8FA40150,0x24050056,0x1591000A,0x2686FFFD,0x8FA700A0,0x3C0E7656,
+		0x35CE1CB0,0x268D000F,0xAFAD0010,0xAFAE0014,0x0C000000,0x24E7FFEE,
+		0xAFA20150
+	};
+	static const unsigned int rendermask[55] = {
+		0xFC000000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFFFF0000,
+		0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,
+		0xFFFFFFFF
+	};
+	static const unsigned int renderendpattern[7] = {
+		0x3C0B0000,0x256B0000,0x26310004,0x162BFF06,0x26940013,0x0C000000,
+		0x8FA40150
+	};
+	static const unsigned int renderendmask[7] = {
+		0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,
+		0xFFFFFFFF
+	};
+	static const unsigned int chooserinputpattern[12] = {
+		0x8FA2001C,0x3C040000,0x24840000,0x304E0808,0x11C00002,0x304F0404,
+		0xAC800000,0x3C040000,0x11E00003,0x24840000,0x24030001,0xAC830000
+	};
+	static const unsigned int chooserinputmask[12] = {
+		0xFFFFFFFF,0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF
+	};
+	static const unsigned int chooserbasicpattern[14] = {
+		0x3C030000,0x8C630000,0x1460000D,0x3C097656,0x35291CB0,0x2408006D,
+		0xAFA80010,0xAFA90014,0x02002025,0x24050046,0x2406005A,0x0C000000,
+		0x24070190,0x3C030000
+	};
+	static const unsigned int chooserbasicmask[14] = {
+		0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,
+		0xFFFFFFFF,0xFFFF0000
+	};
+	static const unsigned int chooseradvancedpattern[14] = {
+		0x3C030000,0x8C630000,0x24010001,0x02002025,0x1461000C,0x24050046,
+		0x3C0D7656,0x35AD1CB0,0x240C008B,0xAFAC0010,0xAFAD0014,0x24060078,
+		0x0C000000,0x24070190
+	};
+	static const unsigned int chooseradvancedmask[14] = {
+		0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFC000000,0xFFFFFFFF
+	};
+	static const unsigned int menureturnpattern[34] = {
+		0x0C000000,0x00000000,0x50400020,0x8FBF0014,0x0C000000,0xAFA2001C,
+		0x8FA3001C,0x24010002,0x240E0001,0x14610013,0x240F0039,0x3C010000,
+		0xAC200000,0x3C010000,0xAC2E0000,0x3C010000,0xAC2F0000,0x3C010000,
+		0xAC200000,0x2404000B,0x0C000000,0x24050001,0x3C040000,0x8C840000,
+		0x2405002B,0x0C000000,0x00003025,0x10000007,0x8FBF0014,0x0C000000,
+		0x24040017,0x24040000,0x0C000000,0x00002825
+	};
+	static const unsigned int menureturnmask[34] = {
+		0xFC000000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,
+		0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,0xFFFF0000,
+		0xFFFF0000,0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFFFF0000,0xFFFF0000,
+		0xFFFFFFFF,0xFC000000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFC000000,
+		0xFFFFFFFF,0xFFFF0000,0xFC000000,0xFFFFFFFF
+	};
+	GE_MAPMAKER_PROFILE *editor = &profile->mapmaker;
+	unsigned int row, secondrow, drawing, labels, tool, chooser, page;
+	/* The row count and coordinates are deliberately exact: unknown layouts
+	 * keep ordinary controller navigation rather than guessed hit regions. */
+	drawing = GE_FindUniqueROMPattern(renderpattern, rendermask, 55);
+	if(input <= GE_ROM_SCAN_LIMIT - 0x110
+		&& GE_ROMPatternMatches(input + 0xAC, navigationpattern, navigationmask, 25)
+		&& drawing >= 0xA58 && drawing <= GE_ROM_SCAN_LIMIT - 0x498
+		&& GE_ROMPatternMatches(drawing + 0x47C, renderendpattern, renderendmask, 7)
+		&& EMU_ReadROM(drawing - 0xA58) == 0x24130001U)
+	{
+		row = GE_MakeAddress(EMU_ReadROM(input + 0xB4), EMU_ReadROM(input + 0xB8));
+		secondrow = GE_MakeAddress(EMU_ReadROM(input + 0xD8), EMU_ReadROM(input + 0xE0));
+		labels = GE_MakeAddress(EMU_ReadROM(drawing + 0x74), EMU_ReadROM(drawing + 0x78));
+		tool = GE_MakeAddress(EMU_ReadROM(mode + 0x14), EMU_ReadROM(mode + 0x18));
+		if(GE_MapMakerDataAddress(row) && row == secondrow && row == editor->menu + 4
+			&& GE_MapMakerMenuGetter(EMU_ReadROM(drawing + 0x6C), codebase) == row
+			&& GE_MapMakerDataAddress(tool) && tool + 4 == editor->freemode
+			&& GE_MapMakerMenuGetter(EMU_ReadROM(drawing), codebase) == tool
+			&& GE_MapMakerDataAddress(labels)
+			&& GE_MakeAddress(EMU_ReadROM(drawing + 0x47C), EMU_ReadROM(drawing + 0x480)) == labels + 14 * 4)
+		{
+			editor->menu_selection = row;
+			editor->menu_tool = tool;
+		}
+	}
+	/* The two-row Basic/Advanced chooser has its own selector, with no
+	 * native cursor hit testing. Read its page from the editor's return path. */
+	if(select < 0x74 || select > GE_ROM_SCAN_LIMIT - 0x420
+		|| !GE_ROMPatternMatches(select - 0x74, chooserinputpattern, chooserinputmask, 12)
+		|| !GE_ROMPatternMatches(select + 0x110, chooserbasicpattern, chooserbasicmask, 14)
+		|| !GE_ROMPatternMatches(select + 0x1D0, chooseradvancedpattern, chooseradvancedmask, 14)
+		|| !GE_ROMPatternMatches(select + 0x398, menureturnpattern, menureturnmask, 34)
+		|| GE_MapMakerCallTarget(EMU_ReadROM(select + 0x398)) != codebase + input
+		|| GE_MapMakerCallTarget(EMU_ReadROM(select + 0x418)) != codebase + change) return;
+	chooser = GE_MakeAddress(EMU_ReadROM(select - 0x70), EMU_ReadROM(select - 0x6C));
+	page = EMU_ReadROM(select + 0x414) & 0xFFFFU;
+	if(!GE_MapMakerDataAddress(chooser) || page < 28 || page > profile->maxpage || page == editor->page
+		|| GE_MakeAddress(EMU_ReadROM(select - 0x58), EMU_ReadROM(select - 0x50)) != chooser
+		|| GE_MakeAddress(EMU_ReadROM(select + 0x110), EMU_ReadROM(select + 0x114)) != chooser
+		|| GE_MakeAddress(EMU_ReadROM(select + 0x1D0), EMU_ReadROM(select + 0x1D4)) != chooser) return;
+	editor->chooser_page = page;
+	editor->chooser_selection = chooser;
+}
+
+static void GE_ResolveMapMakerProfile(GE_ADDRESS_PROFILE *profile)
+{
+	GE_MAPMAKER_PROFILE candidate = {0};
+	const GE_MAPMAKER_PROFILE empty = {0};
+	unsigned int input, mode, look, select, change, codebase;
+	profile->mapmaker = empty;
+	if(profile->maxpage < 28) return;
+	input = GE_FindUniqueROMPattern(gemapmakerinputpattern, gemapmakerinputmask, 30);
+	mode = GE_FindUniqueROMPattern(gemapmakermodepattern, gemapmakermodemask, 24);
+	look = GE_FindUniqueROMPattern(gemapmakerlookpattern, gemapmakerlookmask, 56);
+	select = GE_FindUniqueROMPattern(gemapmakerselectpattern, gemapmakerselectmask, 19);
+	change = GE_FindUniqueROMPattern(gemapmakerchangepattern, gemapmakerchangemask, 15);
+	if(!input || !mode || !look || !select || !change || mode != input + 0xC5C) return;
+	/* The selection calls the same frontend transition routine whose two
+	 * destinations are next to the already-resolved current-menu global. */
+	codebase = GE_MapMakerCallTarget(EMU_ReadROM(select + 0x30)) - change;
+	if((codebase & 0xFF800003U) != 0x80000000U
+		|| GE_MapMakerCallTarget(EMU_ReadROM(mode + 0x50)) != codebase + look)
+		return;
+	candidate.page = EMU_ReadROM(select + 0x2C) & 0xFFFFU;
+	candidate.nextpage = GE_MakeAddress(EMU_ReadROM(change + 0x24), EMU_ReadROM(change + 0x2C));
+	candidate.nextpagealt = GE_MakeAddress(EMU_ReadROM(change + 0x20), EMU_ReadROM(change + 0x30));
+	if(candidate.page < 28 || candidate.page > profile->maxpage
+		|| candidate.nextpage != profile->menupage + 4 || candidate.nextpagealt != profile->menupage + 8)
+		return;
+	candidate.preview = GE_MakeAddress(EMU_ReadROM(input + 0x3C), EMU_ReadROM(input + 0x40));
+	candidate.menu = GE_MakeAddress(EMU_ReadROM(input + 0x50), EMU_ReadROM(input + 0x64));
+	candidate.freemode = GE_MakeAddress(EMU_ReadROM(mode), EMU_ReadROM(mode + 4));
+	candidate.yaw = GE_MakeAddress(EMU_ReadROM(look + 0x50), EMU_ReadROM(look + 0x58));
+	candidate.pitch = GE_MakeAddress(EMU_ReadROM(look + 0x68), EMU_ReadROM(look + 0x70));
+	candidate.pitchmin = GE_MakeAddress(EMU_ReadROM(look + 0x30), EMU_ReadROM(look + 0x38));
+	candidate.pitchmax = GE_MakeAddress(EMU_ReadROM(look + 0x88), EMU_ReadROM(look + 0xBC));
+	if(!GE_MapMakerDataAddress(candidate.yaw) || !GE_MapMakerDataAddress(candidate.pitch)
+		|| !GE_MapMakerDataAddress(candidate.preview) || !GE_MapMakerDataAddress(candidate.menu)
+		|| !GE_MapMakerDataAddress(candidate.freemode) || !GE_MapMakerDataAddress(candidate.pitchmin)
+		|| !GE_MapMakerDataAddress(candidate.pitchmax)
+		|| candidate.pitch != candidate.yaw + 4 || candidate.menu != candidate.yaw + 12
+		|| candidate.preview != candidate.yaw + 32 || candidate.freemode != candidate.yaw + 40)
+		return;
+	profile->mapmaker = candidate;
+	GE_ResolveMapMakerMenus(profile, input, mode, select, change, codebase);
+}
+
+static int GE_MapMakerPage(const GE_ADDRESS_PROFILE *profile, const int page)
+{
+	return profile->mapmaker.page && page == (int)profile->mapmaker.page;
+}
+
+static void GE_MapMakerLook(const GE_ADDRESS_PROFILE *profile, const float sensitivity)
+{
+	const GE_MAPMAKER_PROFILE *editor = &profile->mapmaker;
+	const float mousex = DEVICE[PLAYER1].XPOS, mousey = DEVICE[PLAYER1].YPOS;
+	float yaw, pitch, minimum, maximum, dx, dy;
+	if(!GE_MapMakerPage(profile, EMU_ReadInt(profile->menupage))
+		|| EMU_ReadInt(editor->nextpage) != -1 || EMU_ReadInt(editor->nextpagealt) != -1
+		|| EMU_ReadInt(editor->menu) != 0 || EMU_ReadInt(editor->preview) != 0
+		|| EMU_ReadInt(editor->freemode) != 1
+		|| DEVICE[PLAYER1].BUTTONPRIM[START] || DEVICE[PLAYER1].BUTTONSEC[START]
+		|| (!mousex && !mousey) || !isfinite(mousex) || !isfinite(mousey)
+		|| !isfinite(sensitivity) || sensitivity <= 0)
+		return;
+	yaw = EMU_ReadFloat(editor->yaw);
+	pitch = EMU_ReadFloat(editor->pitch);
+	minimum = EMU_ReadFloat(editor->pitchmin);
+	maximum = EMU_ReadFloat(editor->pitchmax);
+	/* The native camera uses radians and clamps pitch to +/-pi/2. Verify
+	 * the live constants too, so uninitialized or changed layouts fail shut. */
+	if(!isfinite(yaw) || !isfinite(pitch) || !isfinite(minimum) || !isfinite(maximum)
+		|| minimum != -1.570796251296997f || maximum != 1.570796251296997f
+		|| pitch < minimum || pitch > maximum)
+		return;
+	/* Raw mouse deltas already represent movement since our last poll.
+	 * Match gameplay sensitivity in degrees, then convert once to radians. */
+	dx = mousex / 10.0f * sensitivity * (PI / 180.0f);
+	dy = mousey / 10.0f * sensitivity * (PI / 180.0f);
+	if(!isfinite(dx) || !isfinite(dy)) return;
+	if(mousex)
+	{
+		yaw = fmodf(yaw - dx, 2.0f * PI);
+		if(yaw < 0) yaw += 2.0f * PI;
+		EMU_WriteFloat(editor->yaw, yaw);
+	}
+	if(mousey)
+	{
+		pitch += PROFILE[PLAYER1].SETTINGS[INVERTPITCH] ? dy : -dy;
+		EMU_WriteFloat(editor->pitch, ClampFloat(pitch, minimum, maximum));
+	}
+}
+
+#include "goldeneye.mapmenu.h"
+
+static int GE_ResolveNativeBReload(const GE_ADDRESS_PROFILE *profile)
+{
+#ifndef SPEEDRUN_BUILD
+	/* Plus retains the native B interact/reload action but rewrites the
+	 * separate reload trampoline. Offer that native action only when its
+	 * input, state getter and two-hand reload path are all recognized. */
+	static const unsigned int input[10] = {0x8E0B0000,0x8FA2005C,0x8D630124,0x30494000,0x0009602B,0x2C650001,0xAFA501E4,0xAFA50170,0xAFAC01D8,0xAFAC0040};
+	static const unsigned int mask[10] = {0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF};
+	unsigned int logic;
+	if(!profile->mapmaker.page || GE_GetReloadHackProfile()
+		|| !GE_FindUniqueROMPattern(input, mask, 10)
+		|| !GE_FindUniqueROMPattern(gereloadweaponpattern, gereloadweaponmask, 8))
+		return 0;
+	logic = GE_FindUniqueROMPattern(gereloadlogicpattern, gereloadlogicmask, 11);
+	return logic && EMU_ReadROM(logic + 0x1C) == EMU_ReadROM(logic + 0x24);
+#else
+	(void)profile;
+	return 0;
+#endif
+}
+
+/* File erase confirmation selects Yes/No from directions, not cursor
+ * hit testing. Recognize the active file selector independently of menus. */
+static unsigned int GE_FindEraseSelection(const unsigned int menupage)
+{
+	static const unsigned int pattern[9] = {
+		0x3C090000,0x8D290000,0x2411FFFF,0x00009025,0x0520006A,
+		0x3C100000,0x00002025,0x0C000000,0x24050222
+	};
+	static const unsigned int mask[9] = {
+		0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,
+		0xFFFF0000,0xFFFFFFFF,0xFC000000,0xFFFFFFFF
+	};
+	static const unsigned int rightpattern[8] = {
+		0x3C100000,0x26100000,0x00002025,0x0C000000,
+		0x24050111,0x1040000A,0x00000000,0x8E0C0000
+	};
+	static const unsigned int rightmask[8] = {
+		0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFC000000,
+		0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+	};
+	const unsigned int match = GE_FindUniqueROMPattern(pattern, mask, 9);
+	unsigned int selection, choice;
+	if(!match || match > GE_ROM_SCAN_LIMIT - 0x80
+		|| !GE_ROMPatternMatches(match + 0x60, rightpattern, rightmask, 8)
+		|| EMU_ReadROM(match + 0x1C) != EMU_ReadROM(match + 0x6C)
+		|| (EMU_ReadROM(match + 0x28) & 0xFFFF0000U) != 0x3C100000U
+		|| (EMU_ReadROM(match + 0x2C) & 0xFFFF0000U) != 0x26100000U) return 0;
+	selection = GE_MakeAddress(EMU_ReadROM(match), EMU_ReadROM(match + 4));
+	choice = GE_MakeAddress(EMU_ReadROM(match + 0x60), EMU_ReadROM(match + 0x64));
+	if(!GE_MapMakerDataAddress(selection) || selection != menupage + 0x5C
+		|| choice != selection + 4
+		|| GE_MakeAddress(EMU_ReadROM(match + 0x28), EMU_ReadROM(match + 0x2C)) != choice) return 0;
+	return selection;
+}
+
 static int GE_ResolveAddressProfile(GE_ADDRESS_PROFILE *profile)
 {
 	unsigned int menumatch;
@@ -344,11 +740,14 @@ static int GE_ResolveAddressProfile(GE_ADDRESS_PROFILE *profile)
 	profile->exit = profile->camera + 0x1C;
 	profile->menux = profile->menupage + 0x48;
 	profile->menuy = profile->menupage + 0x4C;
+	profile->erase_selection = GE_FindEraseSelection(profile->menupage);
 	profile->tankxrot = profile->camera - 0x10;
 	profile->tankflag = profile->camera - 0x4C;
 	profile->matchended = GE_FindMatchEnded();
 	profile->introcounter = profile->menupage + 0x0C;
 	profile->seenintroflag = profile->menupage + 0x70;
+	GE_ResolveMapMakerProfile(profile);
+	profile->native_reload = GE_ResolveNativeBReload(profile);
 
 	return (profile->bonddata & 0xFF800000U) == 0x80000000U
 		&& (profile->camera & 0xFF800000U) == 0x80000000U
@@ -429,6 +828,8 @@ static void GE_Controller(void);
 static void GE_InjectHacks(void);
 void GE_Quit(void);
 
+#include "goldeneye.menunav.h"
+
 static const GAMEDRIVER GAMEDRIVER_INTERFACE =
 {
 	"GoldenEye 007",
@@ -465,6 +866,7 @@ int GE_Status(void)
 //==========================================================================
 void GE_Inject(void)
 {
+	GE_MenuMouseFrameBegin();
 	if(EMU_ReadInt(GE_menupage) < 1) // hacks can only be injected at boot sequence before code blocks are cached, so inject until the main menu
 		GE_InjectHacks();
 	const int camera = EMU_ReadInt(GE_camera);
@@ -553,6 +955,10 @@ void GE_Inject(void)
 				}
 			}
 		}
+		else if(player == PLAYER1 && GE_MapMakerMenuMouse(GE_GetAddressProfile(), sensitivity))
+			; /* Verified custom menus use their independent row selectors. */
+		else if(player == PLAYER1 && GE_MapMakerPage(GE_GetAddressProfile(), menupage))
+			GE_MapMakerLook(GE_GetAddressProfile(), sensitivity);
 		else if(player == PLAYER1 && menupage != 11 && menupage != 23) // if user is in menu (only player 1 can control menu)
 		{
 			float menucrosshairx = EMU_ReadFloat(GE_menux), menucrosshairy = EMU_ReadFloat(GE_menuy);
@@ -567,6 +973,8 @@ void GE_Inject(void)
 			GE_ResetCrouchToggle(player);
 	}
 	GE_Controller(); // set controller data
+	GE_MenuMouseInputs();
+	GE_MenuNativeInputs();
 }
 //==========================================================================
 // Purpose: crouching function for GoldenEye (2 = stand, 1 = kneel (in tank), 0 = crouch)
@@ -636,6 +1044,11 @@ static void GE_Controller(void)
 {
 	for(int player = PLAYER1; player < ALLPLAYERS; player++)
 	{
+		const int enabled = PROFILE[player].SETTINGS[CONFIG] != DISABLED;
+		CONTROLLER[player].U_DPAD = enabled && (DEVICE[player].BUTTONPRIM[D_UP] || DEVICE[player].BUTTONSEC[D_UP]);
+		CONTROLLER[player].D_DPAD = enabled && (DEVICE[player].BUTTONPRIM[D_DOWN] || DEVICE[player].BUTTONSEC[D_DOWN]);
+		CONTROLLER[player].L_DPAD = enabled && (DEVICE[player].BUTTONPRIM[D_LEFT] || DEVICE[player].BUTTONSEC[D_LEFT]);
+		CONTROLLER[player].R_DPAD = enabled && (DEVICE[player].BUTTONPRIM[D_RIGHT] || DEVICE[player].BUTTONSEC[D_RIGHT]);
 		const int forwards = DEVICE[player].BUTTONPRIM[FORWARDS] || DEVICE[player].BUTTONSEC[FORWARDS];
 		const int backwards = DEVICE[player].BUTTONPRIM[BACKWARDS] || DEVICE[player].BUTTONSEC[BACKWARDS];
 		CONTROLLER[player].U_CBUTTON = forwards;
@@ -644,12 +1057,36 @@ static void GE_Controller(void)
 		CONTROLLER[player].R_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFERIGHT] || DEVICE[player].BUTTONSEC[STRAFERIGHT];
 		CONTROLLER[player].Z_TRIG = DEVICE[player].BUTTONPRIM[FIRE] || DEVICE[player].BUTTONSEC[FIRE] || DEVICE[player].BUTTONPRIM[PREVIOUSWEAPON] || DEVICE[player].BUTTONSEC[PREVIOUSWEAPON];
 		CONTROLLER[player].R_TRIG = DEVICE[player].BUTTONPRIM[AIM] || DEVICE[player].BUTTONSEC[AIM];
+#if !PD_DECOMP
+		CONTROLLER[player].R_TRIG |= enabled && (DEVICE[player].BUTTONPRIM[R_SHOULDER] || DEVICE[player].BUTTONSEC[R_SHOULDER]);
+#endif
+		CONTROLLER[player].L_TRIG = enabled && (DEVICE[player].BUTTONPRIM[L_SHOULDER] || DEVICE[player].BUTTONSEC[L_SHOULDER]);
 #ifndef SPEEDRUN_BUILD // speedrun build does not have reload button support
 		CONTROLLER[player].RELOAD_HACK = DEVICE[player].BUTTONPRIM[RELOAD] || DEVICE[player].BUTTONSEC[RELOAD];
 #endif
 		CONTROLLER[player].A_BUTTON = DEVICE[player].BUTTONPRIM[ACCEPT] || DEVICE[player].BUTTONSEC[ACCEPT] || DEVICE[player].BUTTONPRIM[PREVIOUSWEAPON] || DEVICE[player].BUTTONSEC[PREVIOUSWEAPON] || DEVICE[player].BUTTONPRIM[NEXTWEAPON] || DEVICE[player].BUTTONSEC[NEXTWEAPON];
 		CONTROLLER[player].B_BUTTON = DEVICE[player].BUTTONPRIM[CANCEL] || DEVICE[player].BUTTONSEC[CANCEL];
 		CONTROLLER[player].START_BUTTON = DEVICE[player].BUTTONPRIM[START] || DEVICE[player].BUTTONSEC[START];
+#ifndef SPEEDRUN_BUILD
+		if(GE_GetAddressProfile()->native_reload && CONTROLLER[player].RELOAD_HACK)
+		{
+			CONTROLLER[player].RELOAD_HACK = 0;
+			if(PROFILE[player].SETTINGS[CONFIG] != DISABLED
+				&& EMU_ReadInt(GE_menupage) == 11 && EMU_ReadInt(GE_exit) == 1
+				&& (EMU_ReadInt(GE_camera) == 4 || EMU_ReadInt(GE_camera) == 0)
+				&& EMU_ReadInt(GE_pause) == 0 && EMU_ReadInt(GE_matchended) == 0
+				&& EMU_ReadInt(playerbase[player] + GE_deathflag) == 0
+				&& EMU_ReadInt(playerbase[player] + GE_watch) == 0
+				&& EMU_ReadInt(playerbase[player] + GE_multipausemenu) == 0
+				&& !CONTROLLER[player].START_BUTTON)
+			{
+				CONTROLLER[player].B_BUTTON = 1;
+				/* R takes priority over Fire to avoid Plus's native B+Z
+				 * holster combo. E retains the original combined action. */
+				CONTROLLER[player].Z_TRIG = 0;
+			}
+		}
+#endif
 		DEVICE[player].ARROW[0] = (DEVICE[player].BUTTONPRIM[UP] || DEVICE[player].BUTTONSEC[UP]) ? 127 : 0;
 		DEVICE[player].ARROW[1] = (DEVICE[player].BUTTONPRIM[DOWN] || DEVICE[player].BUTTONSEC[DOWN]) ? (EMU_ReadInt(GE_menupage) != 11 ? -127 : -128) : 0; // clamp to -127 for menus due to overflow bug
 		DEVICE[player].ARROW[2] = (DEVICE[player].BUTTONPRIM[LEFT] || DEVICE[player].BUTTONSEC[LEFT]) ? -128 : 0;
@@ -657,7 +1094,7 @@ static void GE_Controller(void)
 		CONTROLLER[player].X_AXIS = DEVICE[player].ARROW[0] + DEVICE[player].ARROW[1];
 		CONTROLLER[player].Y_AXIS = DEVICE[player].ARROW[2] + DEVICE[player].ARROW[3];
 	}
-	if(EMU_ReadInt(GE_menupage) != 11 && !CONTROLLER[PLAYER1].B_BUTTON) // pressing aim will act like the back button (only in menus and for player 1)
+	if(EMU_ReadInt(GE_menupage) != 11 && !GE_MapMakerPage(GE_GetAddressProfile(), EMU_ReadInt(GE_menupage)) && !CONTROLLER[PLAYER1].B_BUTTON) // Map Maker uses R itself; other menus map aim to Back
 		CONTROLLER[PLAYER1].B_BUTTON = DEVICE[PLAYER1].BUTTONPRIM[AIM] || DEVICE[PLAYER1].BUTTONSEC[AIM];
 }
 //==========================================================================
@@ -1014,6 +1451,8 @@ static void GE_InjectHacks(void)
 //==========================================================================
 void GE_Quit(void)
 {
+	GE_MenuMouseReset();
+	GE_MenuNativeReset();
 	GE_RestoreOwnedROM();
 	ge_rom_generation++;
 	for(int player = PLAYER1; player < ALLPLAYERS; player++)

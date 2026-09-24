@@ -566,20 +566,20 @@ static void PD_Controller(void)
 		CONTROLLER[player].L_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFELEFT] || DEVICE[player].BUTTONSEC[STRAFELEFT] || radialmenudirection[player][STRAFELEFT];
 		CONTROLLER[player].R_CBUTTON = DEVICE[player].BUTTONPRIM[STRAFERIGHT] || DEVICE[player].BUTTONSEC[STRAFERIGHT] || radialmenudirection[player][STRAFERIGHT];
 
-		#if PD_DECOMP
-		// d-pad
-		CONTROLLER[player].U_DPAD = DEVICE[player].BUTTONPRIM[D_UP] || DEVICE[player].BUTTONSEC[D_UP];
-		CONTROLLER[player].D_DPAD = DEVICE[player].BUTTONPRIM[D_DOWN] || DEVICE[player].BUTTONSEC[D_DOWN];
-		CONTROLLER[player].L_DPAD = DEVICE[player].BUTTONPRIM[D_LEFT] || DEVICE[player].BUTTONSEC[D_LEFT];
-		CONTROLLER[player].R_DPAD = DEVICE[player].BUTTONPRIM[D_RIGHT] || DEVICE[player].BUTTONSEC[D_RIGHT];
-		#endif
+		// D-pad bindings are available in both normal and decomp builds.
+		const int enabled = PROFILE[player].SETTINGS[CONFIG] != DISABLED;
+		CONTROLLER[player].U_DPAD = enabled && (DEVICE[player].BUTTONPRIM[D_UP] || DEVICE[player].BUTTONSEC[D_UP]);
+		CONTROLLER[player].D_DPAD = enabled && (DEVICE[player].BUTTONPRIM[D_DOWN] || DEVICE[player].BUTTONSEC[D_DOWN]);
+		CONTROLLER[player].L_DPAD = enabled && (DEVICE[player].BUTTONPRIM[D_LEFT] || DEVICE[player].BUTTONSEC[D_LEFT]);
+		CONTROLLER[player].R_DPAD = enabled && (DEVICE[player].BUTTONPRIM[D_RIGHT] || DEVICE[player].BUTTONSEC[D_RIGHT]);
 
 		// triggers / shoulders
 		CONTROLLER[player].Z_TRIG = DEVICE[player].BUTTONPRIM[FIRE] || DEVICE[player].BUTTONSEC[FIRE] || DEVICE[player].BUTTONPRIM[PREVIOUSWEAPON] || DEVICE[player].BUTTONSEC[PREVIOUSWEAPON];
 		CONTROLLER[player].R_TRIG = DEVICE[player].BUTTONPRIM[AIM] || DEVICE[player].BUTTONSEC[AIM];
-		#if PD_DECOMP
-		CONTROLLER[player].L_TRIG = DEVICE[player].BUTTONPRIM[L_SHOULDER] || DEVICE[player].BUTTONSEC[L_SHOULDER];
-		#endif
+#if !PD_DECOMP
+		CONTROLLER[player].R_TRIG |= enabled && (DEVICE[player].BUTTONPRIM[R_SHOULDER] || DEVICE[player].BUTTONSEC[R_SHOULDER]);
+#endif
+		CONTROLLER[player].L_TRIG = enabled && (DEVICE[player].BUTTONPRIM[L_SHOULDER] || DEVICE[player].BUTTONSEC[L_SHOULDER]);
 
 		// "reserved" buttons
 #ifndef SPEEDRUN_BUILD // speedrun build does not have reload button support

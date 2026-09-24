@@ -202,8 +202,8 @@ DWORD WINAPI DEV_InjectThread(LPVOID parameter)
 			if((mouseunlockonloss || !mousetoggle) && emulatorwindow != GetForegroundWindow()) // window is inactive
 			{
 				memset(&DEVICE, 0, sizeof(DEVICE)); // reset player input
-				GAME_Inject(); // ship empty input to game
 				windowactive = 0, mousetoggle = 0, togglebuffer = 0;
+				GAME_Inject(); // ship empty input after disabling capture, clearing any menu pulse
 			}
 			else // emu window is in focus
 			{

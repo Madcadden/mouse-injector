@@ -1,7 +1,9 @@
 # MouseInjector Plugin for 1964GEPD
 
 
-This is a fork with support for Perfect Dark decomp.
+**[Download Mouse Injector v0.3](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3)**
+
+This fork provides automatic mod compatibility for GoldenEye and Perfect Dark, alongside the separate Perfect Dark decomp build. Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2)**, whose ZIP already includes the matching injector.
 
 ## GoldenEye ROM-mod support
 
@@ -25,7 +27,7 @@ support use the automatically resolved layout.
 
 No ROMs, ROM patches, game assets, or save files are included.
 
-## Development candidate: FOV and Perfect Dark discovery
+## FOV and Perfect Dark discovery
 
 GoldenEye FOV, related viewmodel data and supported controller/aim patches are
 resolved independently. GoldenEye 007 Plus uses different pause and multiplayer
@@ -36,9 +38,45 @@ Perfect Dark runtime globals, FOV/zoom and supported settings are found from
 unique instruction windows. The legacy PD cursor/reload trampolines require
 their fully verified canonical layout. Rewritten Plus reload, reverse-pitch,
 aspect/HUD patterns are skipped rather than receiving retail replacements.
+For the recognized Plus layout, R instead uses its validated native B-button
+interact/reload path during active gameplay. It takes priority over Fire while
+held to avoid the mod's B+Z holster combination. E keeps its native behaviour;
+the separate reload-only trampoline has not been ported.
 
-This is a development candidate, not a claim that every mod works. Use both
-new binaries, restart the ROM, and test gameplay before promoting a release.
+Missing or ambiguous code patterns are skipped. Automatic discovery does not
+guarantee compatibility with every rewritten mod. Upgrade both the emulator
+and injector, then cold-boot the ROM; old save states may retain old code.
+
+### GoldenEye Plus Map Maker
+
+This release supports Josh's **[GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus)**, including its Map Maker. The mod itself includes expanded **1–4-player local co-op**. Thanks to Josh and the GoldenEye Plus contributors. Online co-op with a full-screen view for each player is a possible future project, not a feature of this release.
+
+Defaults with the WASD input profile:
+
+| Action | Mouse / keyboard |
+|---|---|
+| Look / move in free camera | Mouse / WASD |
+| Place or draw | Left-click / hold left-click |
+| Delete | E |
+| Rotate (N64 L shoulder) | U |
+| 2× movement speed (N64 R shoulder) | Hold O or right-click |
+| D-pad Up / Down / Left / Right | I / K / J / L |
+| Open editor menu | Enter |
+| Editor menus | Hover and left-click; right-click goes back |
+
+The active tool determines the D-pad action, including module, layer or texture selection. Keyboard **R remains reload** during gameplay; it is separate from the N64 R shoulder. Arrow keys still supply analog-stick input.
+
+Free-camera mouse look uses your sensitivity, acceleration and invert-pitch settings. It pauses while the editor menu or test preview is active. Orbit mode retains its native keyboard controls; test-preview mouse controls are not added.
+
+The Basic/Advanced chooser and editor menu support pointer selection and clicks. Click the left or right side of Material, Music and Grid Size values to adjust them. Watch, multiplayer and confirmation menus that use directional selection respond to mouse movements, with left-click to accept and right-click for the native Back action. Enter still closes the main watch. Held clicks are released across menu transitions to avoid accidental placement or firing.
+
+### Input settings
+
+The normal plugin exposes all four D-pad directions and both shoulders, each with primary and secondary bindings. I/K/J/L and U/O are the defaults in both WASD and ESDF profiles. These buttons also reach the normal Perfect Dark driver.
+
+Existing settings migrate without resetting old controls or FOV. New defaults are added to old custom profiles only when their keys are unused; conflicting additions stay unbound so you can assign them. Previously cleared bindings stay cleared. Back up your INI if you intend to return to an older plugin. The separate PD decomp configuration and defaults are unchanged.
+
+See the [v0.3 release notes](docs/releases/automatic-mod-compatibility-v0.3.md) for installation, changes and file hashes.
 
 ## Building
 
@@ -60,6 +98,15 @@ make -f makefile mouseinjector \
 
 The output is `Mouse_Injector.dll`. Because 1964 GEPD is 32-bit, the DLL must
 also be built for 32-bit Windows.
+
+The published normal DLL can also be built from the repository root with Zig 0.13.0:
+
+```bash
+python3 tools/build_injector_zig.py \
+  --source . --zig /path/to/zig --output /path/to/build-output
+```
+
+The script records input/output hashes in its build manifest. Use `--speedrun` or `--pd-decomp` with separate output directories for those configurations.
 
 ### Vanilla GE/PD Speedrun build
 

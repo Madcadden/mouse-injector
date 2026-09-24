@@ -76,7 +76,7 @@ $(OBJDIR)windows_wminput.o: $(MANYMOUSEDIR)windows_wminput.c $(MANYMOUSEDIR)many
 $(OBJDIR)game.o: $(GAMESDIR)game.c $(GAMESDIR)game.h
 	$(CC) -c $(GAMESDIR)game.c -o $(OBJDIR)game.o $(CFLAGS) $(WARNINGS)
 
-$(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
+$(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.c $(GAMESDIR)goldeneye.mapmenu.h $(GAMESDIR)goldeneye.menunav.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)goldeneye.c -o $(OBJDIR)goldeneye.o $(CFLAGS) $(WARNINGS)
 
 $(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(GAMESDIR)perfectdark.h $(GAMESDIR)perfectdark.compat.h $(GAMESDIR)perfectdark.signatures.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
