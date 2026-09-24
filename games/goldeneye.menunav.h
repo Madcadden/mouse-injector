@@ -42,9 +42,10 @@ static int GE_MenuNativeContext(const int player)
 	watch = EMU_ReadInt(base + GE_watch);
 	multiplayer = EMU_ReadInt(base + GE_multipausemenu);
 	ended = EMU_ReadInt(GE_matchended);
-	/* The native watch handler runs only in animation state 5. The other
+	/* Watch mouse navigation belongs to Plus and its verified Map Maker.
+	 * The native watch handler runs only in animation state 5; other
 	 * nonzero values are opening, closing or mission-exit transitions. */
-	if(player == PLAYER1 && watch == 5 && dead == 0 && multiplayer == 0)
+	if(profile->mapmaker.page && player == PLAYER1 && watch == 5 && dead == 0 && multiplayer == 0)
 		return 1;
 	/* A round-end countdown >= 2 does not accept input yet. Ordinary death
 	 * without a completed round does not expose a multiplayer menu either. */

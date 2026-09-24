@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
         /* Existing test exercises every frontend page including native
          * arena/scenario/team pages, transitions, click and release routing. */
         assert_menu_input(&a, 0);
-        assert_native_menu_input(&a); assert_frontend_native_input(&a);
+        assert_native_menu_input(&a, 0); assert_frontend_native_input(&a);
         GAME_Quit(); assert(!GAME_Name());
         assert(!memcmp(test_rom, original, test_rom_bytes));
         /* Same allocation/checksums must re-resolve on the next cycle. */
