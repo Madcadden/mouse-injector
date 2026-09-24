@@ -1,9 +1,26 @@
 # MouseInjector Plugin for 1964GEPD
 
 
-**[Download Mouse Injector v0.3.1](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.1)**
+**[Download Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)**
 
-This fork provides automatic mod compatibility for GoldenEye and Perfect Dark, alongside the separate Perfect Dark decomp build. Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.1](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.1)**, whose ZIP already includes the matching injector.
+This fork provides automatic mod compatibility for GoldenEye and Perfect Dark, alongside the separate Perfect Dark decomp build. Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**, whose ZIP already includes the matching injector.
+
+## GoldenEye X controls fix in v0.3.2
+
+Fixes missing controls in **GoldenEye X 6a**, whose renamed ROM header prevented
+the Perfect Dark driver from starting. The driver now recognizes its title and
+then performs the existing code-signature and address checks. GoldenEye X uses
+the Perfect Dark engine and input settings; an engine label of Perfect Dark is
+expected.
+
+The supplied GoldenEye X 6a build's controls have been confirmed by user testing.
+Automated production-driver checks cover boot/reopen, menu buttons, mouse look,
+one/four-player input and rejection of invalid signatures. These checks do not
+establish compatibility with every GoldenEye X version or Perfect Dark mod.
+
+The matching emulator v0.2.2 bundle includes this DLL and the unchanged v0.2.1
+emulator executable. Existing v0.2.1 users can update only
+`plugin/Mouse_Injector.dll` and cold-boot the ROM.
 
 ## PD-AI controls fix in v0.3.1
 
@@ -11,7 +28,7 @@ Fixes missing controls in GoldenEye PD-AI v2.42 by recognizing both verified
 multiplayer flag layouts. The lookup retains its instruction, address-range
 and uniqueness checks.
 
-Use this with **[1964 GEPD Auto-Mod Edition v0.2.1](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.1)**,
+Use this with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**,
 which fixes PD-AI startup and bundles this injector. Startup and controls have
 been confirmed by user testing with the two fixes installed. Existing settings
 can be retained; cold-boot the ROM after upgrading.
@@ -87,7 +104,7 @@ The normal plugin exposes all four D-pad directions and both shoulders, each wit
 
 Existing settings migrate without resetting old controls or FOV. New defaults are added to old custom profiles only when their keys are unused; conflicting additions stay unbound so you can assign them. Previously cleared bindings stay cleared. Back up your INI if you intend to return to an older plugin. The separate PD decomp configuration and defaults are unchanged.
 
-See the [v0.3.1 release notes](docs/releases/automatic-mod-compatibility-v0.3.1.md) for installation, changes and file hashes.
+See the [v0.3.2 release notes](docs/releases/automatic-mod-compatibility-v0.3.2.md) for installation, changes and file hashes.
 
 ## Building
 
