@@ -1,10 +1,12 @@
 ## Changes in v0.3.2
 
-Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
+Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus's Native Test Mode. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
 **Josh's [GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus) is supported**, including mouse controls for its Map Maker and menus. GoldenEye Plus also includes **1–4-player local co-op**, developed by Josh and the mod's contributors.
 
 Use this plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**, which already includes the matching injector.
+
+The Native Test Mode exit fix is included in the updated **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**. Install its updated `1964.exe` and cold-boot the ROM; the Mouse Injector v0.3.2 DLL is unchanged.
 
 ## Features retained from v0.3
 
@@ -35,7 +37,7 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Buttons can be remapped in Input Settings. **Keyboard R remains reload** during gameplay, separate from the N64 R shoulder.
 
-The Map Maker's editing pause menus support mouse navigation. Regular gameplay watch menus, including those in Plus, retain keyboard/controller navigation. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+The Map Maker's editing pause menus support mouse navigation. Regular gameplay watch menus, including the watch in Plus's Native Test Mode, retain keyboard/controller navigation. Other directional menus retain their existing mouse controls. Orbit mode keeps its keyboard controls. Mouse look in First Person View and Native Test Mode is unchanged.
 
 ## Compatibility
 
@@ -73,7 +75,8 @@ The download has been updated in place; the version remains v0.3.2.
 
 **SHA-256**
 
-- ZIP: `44264891f4b44d767280e14c11d78ab043a88a3f8373c29b7fb7a0181e84e8ba`
+- ZIP: `6767e25de0de2f910647a3f4aca3e7e3d4e526602dca920e69079faad0ecc963`
 - `Mouse_Injector.dll`: `9d1c3df81c70601ff9bb7e7dd97c8cfa641ef3104f844d2c4d6e727468c798fd`
 
 [Source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility) · [Updated build source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
+
