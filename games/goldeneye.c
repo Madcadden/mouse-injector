@@ -35,6 +35,7 @@ typedef struct GE_ADDRESS_PROFILE
 	unsigned int exit;
 	unsigned int pause;
 	unsigned int menupage;
+	unsigned int maxpage;
 	unsigned int menux;
 	unsigned int menuy;
 	unsigned int tankxrot;
@@ -285,6 +286,37 @@ static unsigned int GE_FindMatchEnded(void)
 	return match;
 }
 
+static unsigned int GE_FindMenuMaxPage(const unsigned int menupage)
+{
+	/* The frontend constructor dispatch reads current_menu, checks its
+	 * unsigned table index, then jumps through the menu table. Derive the
+	 * upper bound from this code so added mod menus keep receiving input.
+	 * Preserve the existing range unless one verified dispatch extends it. */
+	static const unsigned int pattern[14] = {0x3C0E0000,0x8DCE0000,0x27BDFFE0,0xAFB00018,0x2DC10000,0x00808025,0x10200000,0xAFBF001C,0x000E7080,0x3C010000,0x002E0821,0x8C2E0000,0x01C00008,0};
+	static const unsigned int mask[14] = {0xFFFF0000,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFF0000,0xFFFFFFFF,0xFFFFFFFF};
+	const unsigned int match = GE_FindUniqueROMPattern(pattern, mask, 14);
+	unsigned int count, table, end;
+	int displacement;
+	if(!match || GE_MakeAddress(EMU_ReadROM(match), EMU_ReadROM(match + 4)) != menupage)
+		return 27;
+	count = EMU_ReadROM(match + 16) & 0xFFFFU;
+	table = GE_MakeAddress(EMU_ReadROM(match + 36), EMU_ReadROM(match + 44));
+	displacement = (short)(EMU_ReadROM(match + 24) & 0xFFFFU);
+	/* Check the table range and the default branch's matching epilogue;
+	 * reject invalid or unexpectedly large dispatches rather than treating
+	 * an arbitrary small integer as a supported menu page. */
+	if(count == 0 || count > 256 || (table & 0xFF800003U) != 0x80000000U
+		|| (table & 0x7FFFFFU) > 0x800000U - count * 4 || displacement < 7)
+		return 27;
+	end = match + 28 + (unsigned int)displacement * 4;
+	if(end > GE_ROM_SCAN_LIMIT - 20
+		|| EMU_ReadROM(end) != 0x8FBF001C || EMU_ReadROM(end + 4) != 0x02001025
+		|| EMU_ReadROM(end + 8) != 0x8FB00018 || EMU_ReadROM(end + 12) != 0x03E00008
+		|| EMU_ReadROM(end + 16) != 0x27BD0020)
+		return 27;
+	return count > 28 ? count - 1 : 27;
+}
+
 static int GE_ResolveAddressProfile(GE_ADDRESS_PROFILE *profile)
 {
 	unsigned int menumatch;
@@ -304,6 +336,7 @@ static int GE_ResolveAddressProfile(GE_ADDRESS_PROFILE *profile)
 		return 0;
 
 	profile->menupage = GE_MakeAddress(EMU_ReadROM(menumatch + 0x0C), EMU_ReadROM(menumatch + 0x10));
+	profile->maxpage = GE_FindMenuMaxPage(profile->menupage);
 	profile->bonddata = GE_MakeAddress(EMU_ReadROM(bondmatch + 0x10), EMU_ReadROM(bondmatch + 0x14));
 	profile->camera = GE_MakeAddress(EMU_ReadROM(cameramatch + 0x2C), EMU_ReadROM(cameramatch + 0x30));
 	profile->pause = GE_MakeAddress(EMU_ReadROM(pausematch + 0x1C), EMU_ReadROM(pausematch + 0x24));
@@ -415,7 +448,7 @@ int GE_Status(void)
 {
 	if(GE_GetAddressProfile()->bonddata == 0)
 		return 0;
-	const int ge_max_page = 27;
+	const int ge_max_page = (int)GE_GetAddressProfile()->maxpage;
 	const int ge_camera = EMU_ReadInt(GE_camera), ge_page = EMU_ReadInt(GE_menupage), ge_pause = EMU_ReadInt(GE_pause), ge_exit = EMU_ReadInt(GE_exit);
 	const float ge_crosshairx = EMU_ReadFloat(GE_menux), ge_crosshairy = EMU_ReadFloat(GE_menuy);
 	return (ge_camera >= 0 && ge_camera <= 10 && ge_page >= -1 && ge_page <= ge_max_page && ge_pause >= 0 && ge_pause <= 1 && ge_exit >= 0 && ge_exit <= 1 && ge_crosshairx >= 20 && ge_crosshairx <= 420 && ge_crosshairy >= 20 && ge_crosshairy <= 310); // if GoldenEye 007 is current game

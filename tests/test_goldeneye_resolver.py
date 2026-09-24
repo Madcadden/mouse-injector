@@ -23,23 +23,28 @@ source = source.replace('#include "memory.h"', r'''
 static uint32_t *test_rom;
 static size_t test_rom_bytes;
 static uint32_t test_ram[0x800000 / 4];
+static unsigned int test_write_mode, test_menu_x, test_menu_y;
 static unsigned int EMU_ReadROM(unsigned int at) { assert(!(at & 3) && at + 4 <= test_rom_bytes); return test_rom[at / 4]; }
 static void EMU_WriteROM(unsigned int at, unsigned int v) { assert(!(at & 3) && at + 4 <= test_rom_bytes); test_rom[at / 4] = v; }
 static int EMU_ReadInt(unsigned int at) { return ((at & 0xFF800003U) == 0x80000000U) ? (int)test_ram[(at & 0x7FFFFF) / 4] : (int)0xABADC0DE; }
-static void EMU_WriteInt(unsigned int at, int v) { assert((at & 0xFF800003U) == 0x80000000U); test_ram[(at & 0x7FFFFF) / 4] = (unsigned int)v; }
+static void EMU_WriteInt(unsigned int at, int v) { assert((at & 0xFF800003U) == 0x80000000U); assert(test_write_mode != 2); assert(test_write_mode != 1 || at == test_menu_x || at == test_menu_y); test_ram[(at & 0x7FFFFF) / 4] = (unsigned int)v; }
 static float EMU_ReadFloat(unsigned int at) { union { uint32_t u; float f; } v; v.u = (uint32_t)EMU_ReadInt(at); return v.f; }
 static void EMU_WriteFloat(unsigned int at, float f) { union { uint32_t u; float f; } v; v.f = f; EMU_WriteInt(at, v.u); }
 ''')
+# Exercise the real driver-selection path as well as the GE implementation.
+# goldeneye.c already includes this unguarded header in the same translation unit.
+game_source = (root / 'games/game.c').read_text().replace('#include "game.h"', '')
 
 harness = r'''
 BUTTONS CONTROLLER[4];
 struct PROFILE_STRUCT PROFILE[4];
 struct DEVICE_STRUCT DEVICE[4];
 const unsigned char **rdramptr, **romptr;
+const GAMEDRIVER *GAME_PERFECTDARK = NULL;
 int emuoverclock, overridefov = 90, overrideratiowidth = 16, overrideratioheight = 9, geshowcrosshair, bypassviewmodelfovtweak;
 static void loadrom(const char *name)
 {
-    GE_Quit(); romptr = 0;
+    GAME_Quit(); romptr = 0;
     FILE *f = fopen(name, "rb"); assert(f);
     fseek(f, 0, SEEK_END); test_rom_bytes = (size_t)ftell(f); rewind(f);
     free(test_rom); test_rom = malloc(test_rom_bytes); assert(test_rom);
@@ -50,21 +55,119 @@ static void loadrom(const char *name)
     }
     fclose(f); romptr = (const unsigned char **)test_rom; memset(test_ram, 0, sizeof(test_ram)); GE_Quit();
 }
-#ifndef SPEEDRUN_BUILD
 static void duplicate_words(unsigned int from, unsigned int to, unsigned int count)
 {
     assert(from + count * 4 <= test_rom_bytes && to + count * 4 <= test_rom_bytes);
     memcpy(test_rom + to / 4, test_rom + from / 4, count * 4);
 }
-#endif
 static void assert_globals(const GE_ADDRESS_PROFILE *p, int plus)
 {
+    assert(p->maxpage == (plus ? 30U : 27U));
     assert(p->menupage == (plus ? 0x8002A8F0U : 0x8002A8C0U));
     assert(p->bonddata == (plus ? 0x8007F410U : 0x80079EE0U));
     assert(p->camera == (plus ? 0x80036834U : 0x80036494U));
     assert(p->pause == (plus ? 0x80048810U : 0x80048370U));
     assert(p->matchended == (plus ? 0x80091D00U : 0x8008C700U));
     assert(p->exit == p->camera + 0x1C && p->tankflag == p->camera - 0x4C);
+}
+static void assert_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
+{
+    const unsigned int player = 0x80100000;
+    /* Keep gameplay fields valid so a mistaken gameplay injection is caught. */
+    memset(PROFILE, 0, sizeof(PROFILE)); memset(DEVICE, 0, sizeof(DEVICE));
+    memset(CONTROLLER, 0, sizeof(CONTROLLER));
+    PROFILE[0].SETTINGS[CONFIG] = WASD;
+    PROFILE[0].SETTINGS[SENSITIVITY] = 40;
+    EMU_WriteInt(p->bonddata, player);
+    EMU_WriteInt(p->camera, 4); EMU_WriteInt(p->exit, 1);
+    EMU_WriteFloat(player + GE_camx, 45.f);
+    EMU_WriteFloat(player + GE_camy, 0.f);
+    EMU_WriteFloat(player + GE_fov, 60.f);
+    EMU_WriteFloat(p->menux, 200.f); EMU_WriteFloat(p->menuy, 160.f);
+    test_menu_x = p->menux; test_menu_y = p->menuy;
+    const int pages[] = {22, 27, 28, 29, 30, 29, 22};
+    for(unsigned int i = 0; i < sizeof(pages) / sizeof(pages[0]); i++)
+    {
+        const int page = pages[i];
+        if(!plus && page > 27) continue;
+        EMU_WriteInt(p->menupage, page);
+        assert(GE_Status()); assert(GAME_Status());
+        assert(GAME_Name() && strcmp(GAME_Name(), "GoldenEye 007") == 0);
+        DEVICE[0].XPOS = 5; DEVICE[0].YPOS = -3;
+        DEVICE[0].BUTTONPRIM[CANCEL] = 1;
+        const float x = EMU_ReadFloat(p->menux), y = EMU_ReadFloat(p->menuy);
+        test_write_mode = 1;
+        GAME_Inject();
+        assert(CONTROLLER[0].B_BUTTON);
+        assert(EMU_ReadFloat(p->menux) > x && EMU_ReadFloat(p->menuy) < y);
+        DEVICE[0].BUTTONPRIM[CANCEL] = 0;
+        GAME_Inject(); assert(!CONTROLLER[0].B_BUTTON);
+        DEVICE[0].XPOS = DEVICE[0].YPOS = 0;
+        /* Map Maker reads button edges, not mouse hover: verify both phases. */
+        DEVICE[0].BUTTONPRIM[FORWARDS] = DEVICE[0].BUTTONPRIM[BACKWARDS] = 1;
+        DEVICE[0].BUTTONPRIM[ACCEPT] = DEVICE[0].BUTTONPRIM[FIRE] = DEVICE[0].BUTTONPRIM[START] = 1;
+        GAME_Inject();
+        assert(CONTROLLER[0].U_CBUTTON && CONTROLLER[0].D_CBUTTON);
+        assert(CONTROLLER[0].A_BUTTON && CONTROLLER[0].Z_TRIG && CONTROLLER[0].START_BUTTON);
+        memset(DEVICE[0].BUTTONPRIM, 0, sizeof(DEVICE[0].BUTTONPRIM));
+        GAME_Inject();
+        assert(!CONTROLLER[0].U_CBUTTON && !CONTROLLER[0].D_CBUTTON);
+        assert(!CONTROLLER[0].A_BUTTON && !CONTROLLER[0].Z_TRIG && !CONTROLLER[0].START_BUTTON);
+        DEVICE[0].BUTTONPRIM[AIM] = 1;
+        GAME_Inject(); assert(CONTROLLER[0].B_BUTTON);
+        DEVICE[0].BUTTONPRIM[AIM] = 0;
+        GAME_Inject(); assert(!CONTROLLER[0].B_BUTTON);
+        test_write_mode = 0;
+    }
+    /* An out-of-range page must still drop the driver and stop RAM writes. */
+    const int invalid[] = {-2, plus ? 31 : 28, 0x7FFFFFFF};
+    for(unsigned int i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++)
+    {
+        EMU_WriteInt(p->menupage, invalid[i]);
+        assert(!GE_Status()); assert(!GAME_Status()); assert(!GAME_Name());
+        test_write_mode = 2; GAME_Inject(); test_write_mode = 0;
+    }
+    /* Returning to gameplay must reacquire the driver and resume mouselook. */
+    EMU_WriteInt(p->menupage, 11);
+    DEVICE[0].XPOS = 10; DEVICE[0].YPOS = 5;
+    assert(GAME_Status()); GAME_Inject();
+    assert(EMU_ReadFloat(player + GE_camx) > 45.f);
+    assert(EMU_ReadFloat(player + GE_camy) < 0.f);
+    GAME_Quit();
+    memset(test_ram, 0, sizeof(test_ram));
+    memset(PROFILE, 0, sizeof(PROFILE)); memset(DEVICE, 0, sizeof(DEVICE));
+    memset(CONTROLLER, 0, sizeof(CONTROLLER));
+}
+static void assert_menu_bound_guards(const char *rom, int plus)
+{
+    const unsigned int dispatch = plus ? 0x55D28U : 0x4FA2CU;
+    for(int mutation = 0; mutation < 5; mutation++)
+    {
+        GE_ADDRESS_PROFILE p;
+        loadrom(rom);
+        switch(mutation)
+        {
+        case 0: /* Missing dispatch. */
+            EMU_WriteROM(dispatch, 0); break;
+        case 1: /* Ambiguous dispatch. */
+            duplicate_words(dispatch, 0x1E0000, 14); break;
+        case 2: /* Plausible signature referencing the wrong menu global. */
+            EMU_WriteROM(dispatch + 4, EMU_ReadROM(dispatch + 4) + 4); break;
+        case 3: /* Invalid table bound. */
+            EMU_WriteROM(dispatch + 16, EMU_ReadROM(dispatch + 16) & 0xFFFF0000U); break;
+        case 4: /* Default branch no longer lands on the validated epilogue. */
+            EMU_WriteROM(dispatch + 24, EMU_ReadROM(dispatch + 24) + 1); break;
+        }
+        assert(GE_ResolveAddressProfile(&p)); assert(p.maxpage == 27);
+        EMU_WriteInt(p.camera, 4); EMU_WriteInt(p.exit, 1);
+        EMU_WriteFloat(p.menux, 200.f); EMU_WriteFloat(p.menuy, 160.f);
+        EMU_WriteInt(p.menupage, 28);
+        assert(!GE_Status()); assert(!GAME_Status());
+        test_write_mode = 2; GAME_Inject(); test_write_mode = 0;
+        /* Failure to extend the range must not break ordinary menus. */
+        EMU_WriteInt(p.menupage, 27);
+        assert(GE_Status()); assert(GAME_Status());
+    }
 }
 int main(int argc, char **argv)
 {
@@ -79,6 +182,7 @@ int main(int argc, char **argv)
         loadrom(argv[image]);
         assert(GE_ResolveAddressProfile(&addresses));
         assert_globals(&addresses, plus);
+        assert_menu_input(&addresses, plus);
         p = GE_GetHackProfile();
         assert(p->fov[0] == (plus ? 0xD54C0U : 0xB78BCU));
         assert(p->fov[1] == (plus ? 0xD54E0U : 0xB78DCU));
@@ -237,7 +341,8 @@ int main(int argc, char **argv)
         p = GE_GetHackProfile(); assert(!p->aimvalid && p->fov[0]);
         GE_PrepareROM(); assert(EMU_ReadROM(p->fov[0]) == 0x3C0142B4);
 #endif
-        printf("%s: production resolver, bounded patch writes, boot-only ROM preparation, lifecycle and feature guards passed (%s)\n", plus ? "Plus" : "retail",
+        assert_menu_bound_guards(argv[image], plus);
+        printf("%s: production resolver, menu input dispatch, bounded patch writes, boot-only ROM preparation, lifecycle and feature guards passed (%s)\n", plus ? "Plus" : "retail",
 #ifdef SPEEDRUN_BUILD
         "speedrun"
 #else
@@ -251,7 +356,7 @@ int main(int argc, char **argv)
 '''
 with tempfile.TemporaryDirectory(prefix='ge-resolver-test-') as work:
     cpath = Path(work) / 'test.c'
-    cpath.write_text(source + '\n' + harness)
+    cpath.write_text(source + '\n' + game_source + '\n' + harness)
     binary = Path(work) / 'test'
     for mode in ([], ['-DSPEEDRUN_BUILD']):
         subprocess.run(['cc','-std=c11','-O1','-fgnu89-inline','-Wall','-Wextra','-Wno-parentheses',*mode,str(cpath),'-lm','-o',str(binary)],check=True)
