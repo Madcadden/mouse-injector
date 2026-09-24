@@ -21,7 +21,7 @@ extern int windowactive;
 
 extern int DEV_Init(void);
 extern void DEV_Quit(void);
-extern DWORD WINAPI DEV_InjectThread();
+extern DWORD WINAPI DEV_InjectThread(LPVOID parameter);
 extern int DEV_ReturnKey(void);
 extern int DEV_ReturnDeviceID(const int devicetype);
 extern const char *DEV_Name(const int id);
