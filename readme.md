@@ -2,11 +2,13 @@
 
 ## Current Auto-Mod Edition
 
-**[Download Mouse Injector v0.3.1](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.1)** · **[Current source and documentation](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility)**
+**[Download Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)** · **[Current source and documentation](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility)**
 
-Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.1](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.1)**, which includes the matching injector.
+Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**, which includes the matching injector.
 
-v0.3.1 fixes missing controls in GoldenEye PD-AI v2.42. The matching emulator fixes its startup mapping. Startup and controls have been confirmed by user testing with both fixes installed. The current release also retains GoldenEye Plus Map Maker controls, automatic mod discovery, and existing settings support. Its obsolete RandomEye W+S workaround has been removed.
+v0.3.2 fixes missing controls in **GoldenEye X 6a** by recognizing its renamed ROM header before the existing Perfect Dark compatibility checks. Controls have been confirmed by user testing. The v0.2.2 emulator bundle includes this DLL and the unchanged v0.2.1 executable; existing v0.2.1 users can replace only `plugin/Mouse_Injector.dll`.
+
+The current release retains the user-confirmed GoldenEye PD-AI v2.42 startup/input fixes, GoldenEye Plus Map Maker controls, automatic mod discovery, and existing settings support. Its obsolete RandomEye W+S workaround has been removed. GoldenEye X uses the Perfect Dark input settings. See the [current documentation](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility) for controls and compatibility limits.
 
 **Build the current release from the `automatic-mod-compatibility` branch or its release tag.** The `main` branch and documentation below describe the historical implementation; its CRC-specific detection and W+S option do not describe the current Auto-Mod release.
 
