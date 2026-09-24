@@ -5,33 +5,11 @@
 
 This fork provides automatic mod compatibility for GoldenEye and Perfect Dark, alongside the separate Perfect Dark decomp build. Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**, whose ZIP already includes the matching injector.
 
-## GoldenEye X controls fix in v0.3.2
+## Watch-menu mouse navigation
 
-Fixes missing controls in **GoldenEye X 6a**, whose renamed ROM header prevented
-the Perfect Dark driver from starting. The driver now recognizes its title and
-then performs the existing code-signature and address checks. GoldenEye X uses
-the Perfect Dark engine and input settings; an engine label of Perfect Dark is
-expected.
+Watch-menu mouse navigation is available **only in GoldenEye 007 Plus**, where the Map Maker options are located. Other GoldenEye ROMs keep keyboard/controller navigation in the watch. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
-The supplied GoldenEye X 6a build's controls have been confirmed by user testing.
-Automated production-driver checks cover boot/reopen, menu buttons, mouse look,
-one/four-player input and rejection of invalid signatures. These checks do not
-establish compatibility with every GoldenEye X version or Perfect Dark mod.
-
-The matching emulator v0.2.2 bundle includes this DLL and the unchanged v0.2.1
-emulator executable. Existing v0.2.1 users can update only
-`plugin/Mouse_Injector.dll` and cold-boot the ROM.
-
-## PD-AI controls fix in v0.3.1
-
-Fixes missing controls in GoldenEye PD-AI v2.42 by recognizing both verified
-multiplayer flag layouts. The lookup retains its instruction, address-range
-and uniqueness checks.
-
-Use this with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**,
-which fixes PD-AI startup and bundles this injector. Startup and controls have
-been confirmed by user testing with the two fixes installed. Existing settings
-can be retained; cold-boot the ROM after upgrading.
+The v0.3.2 download has been updated in place. Existing v0.2.2 emulator users can replace only `plugin/Mouse_Injector.dll` and cold-boot the ROM.
 
 ## GoldenEye ROM-mod support
 
@@ -96,7 +74,7 @@ The active tool determines the D-pad action, including module, layer or texture 
 
 Free-camera mouse look uses your sensitivity, acceleration and invert-pitch settings. It pauses while the editor menu or test preview is active. Orbit mode retains its native keyboard controls; test-preview mouse controls are not added.
 
-The Basic/Advanced chooser and editor menu support pointer selection and clicks. Click the left or right side of Material, Music and Grid Size values to adjust them. Watch, multiplayer and confirmation menus that use directional selection respond to mouse movements, with left-click to accept and right-click for the native Back action. Enter still closes the main watch. Held clicks are released across menu transitions to avoid accidental placement or firing.
+The Basic/Advanced chooser and editor menu support pointer selection and clicks. Click the left or right side of Material, Music and Grid Size values to adjust them. Only GoldenEye 007 Plus's watch menu uses mouse movements for directional selection, with left-click to accept and right-click for the native Back action; Enter closes the main watch. Other GoldenEye ROMs keep keyboard/controller watch navigation. Multiplayer and confirmation menu mouse controls are unchanged. Held clicks are released across menu transitions to avoid accidental placement or firing.
 
 ### Input settings
 
@@ -155,4 +133,3 @@ Include the Perfect Dark Mouse Injector decomp branch into your Perfect Dark dec
 - Mouse Injector for Perfect Dark decomp UI, proof of concept, building from linux; by Catherine Reprobate
 - Injectable Mouse Injector "unofficial patches" for Perfect Dark originally written by Stolen/Carnivorous
     - These unofficial patches were ported to the Perfect Dark decompilation compatability patches by Catherine Repbrobate, Graslu, and HackBond
-

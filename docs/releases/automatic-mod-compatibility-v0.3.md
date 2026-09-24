@@ -8,7 +8,7 @@ Use this plugin with **[1964 GEPD Auto-Mod Edition v0.2](https://github.com/Madc
 
 - Resolves GoldenEye FOV, related viewmodel data and supported control/aim settings independently, including GoldenEye Plus's relocated state.
 - Adds free-camera mouse look in Map Maker, using your sensitivity, acceleration and invert-pitch settings.
-- Adds pointer selection in the Basic/Advanced chooser and editor menu, plus mouse gestures for GoldenEye watch, multiplayer and confirmation menus that use directional selection.
+- Adds pointer selection in the Basic/Advanced chooser and editor menu, plus mouse gestures for multiplayer and confirmation menus that use directional selection.
 - Adds configurable D-pad Up/Down/Left/Right and L/R shoulder inputs, with primary and secondary bindings. Existing settings migrate without resetting old controls or FOV; conflicting new defaults in custom profiles stay unbound.
 - Makes R use Plus's native interact/reload action during gameplay. R takes priority over Fire while held to avoid the mod's B+Z holster combination. E retains its native action.
 - Improves Perfect Dark runtime, FOV/zoom and supported settings discovery.
@@ -33,7 +33,9 @@ Defaults with the WASD input profile:
 
 The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Buttons can be remapped in Input Settings. **Keyboard R remains reload** during gameplay, separate from the N64 R shoulder.
 
-Watch and other directional menus respond to mouse movements and left-click. Enter still closes the main watch. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+Directional multiplayer and confirmation menus respond to mouse movements and left-click. Orbit mode keeps its keyboard controls; test-preview mouse controls are not added.
+
+For watch-menu mouse navigation limited to GoldenEye 007 Plus, use the corrected [v0.3.2 release](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2).
 
 ## Compatibility
 
@@ -72,4 +74,4 @@ Thanks also to every mod, plugin and texture-pack creator!
 - ZIP: `CFD10E1562B1B0AEB11E322F39DE8A84D2EAA278734A0F114B2AD04E68BECC11`
 - `Mouse_Injector.dll`: `1AF45876E2254AB75406C46D97658F8A56E81892544EA70A077BE9FB93FEF0C9`
 
-[Source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility) · [Release source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility-v0.3)
+[Source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility) · [Release commit](https://github.com/Madcadden/mouse-injector/commit/5441a622361d4a908252a67bbfe1e98bffe4e172)
