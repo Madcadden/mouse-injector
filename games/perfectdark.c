@@ -53,9 +53,13 @@ static int PD_ResolveCompatibility(void)
 		return 1;
 	if(!romptr || !rdramptr)
 		return 0;
-	/* Avoid repeated 8 MiB scans while unrelated games are running. Most mods
-	 * retain either Perfect Dark's title prefix or the PD cartridge ID. */
-	if((EMU_ReadROM(0x3C) & 0xFFFF0000U) != 0x50440000U && EMU_ReadROM(0x20) != 0x50657266U)
+	/* Avoid repeated 8 MiB scans while unrelated games are running. GoldenEye X
+	 * uses the PD engine but replaces both the title and cartridge ID. Header
+	 * admission only permits discovery; the full PD signatures remain required. */
+	const int goldeneyex = EMU_ReadROM(0x20) == 0x476F6C64U &&
+		EMU_ReadROM(0x24) == 0x656E4579U && EMU_ReadROM(0x28) == 0x65205820U;
+	if((EMU_ReadROM(0x3C) & 0xFFFF0000U) != 0x50440000U &&
+		EMU_ReadROM(0x20) != 0x50657266U && !goldeneyex)
 		return 0;
 	now = time(0);
 	if(pdlastprobe == now)
