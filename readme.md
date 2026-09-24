@@ -1,9 +1,20 @@
 # MouseInjector Plugin for 1964GEPD
 
 
-**[Download Mouse Injector v0.3](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3)**
+**[Download Mouse Injector v0.3.1](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.1)**
 
-This fork provides automatic mod compatibility for GoldenEye and Perfect Dark, alongside the separate Perfect Dark decomp build. Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2)**, whose ZIP already includes the matching injector.
+This fork provides automatic mod compatibility for GoldenEye and Perfect Dark, alongside the separate Perfect Dark decomp build. Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.1](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.1)**, whose ZIP already includes the matching injector.
+
+## PD-AI controls fix in v0.3.1
+
+Fixes missing controls in GoldenEye PD-AI v2.42 by recognizing both verified
+multiplayer flag layouts. The lookup retains its instruction, address-range
+and uniqueness checks.
+
+Use this with **[1964 GEPD Auto-Mod Edition v0.2.1](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.1)**,
+which fixes PD-AI startup and bundles this injector. Startup and controls have
+been confirmed by user testing with the two fixes installed. Existing settings
+can be retained; cold-boot the ROM after upgrading.
 
 ## GoldenEye ROM-mod support
 
@@ -76,7 +87,7 @@ The normal plugin exposes all four D-pad directions and both shoulders, each wit
 
 Existing settings migrate without resetting old controls or FOV. New defaults are added to old custom profiles only when their keys are unused; conflicting additions stay unbound so you can assign them. Previously cleared bindings stay cleared. Back up your INI if you intend to return to an older plugin. The separate PD decomp configuration and defaults are unchanged.
 
-See the [v0.3 release notes](docs/releases/automatic-mod-compatibility-v0.3.md) for installation, changes and file hashes.
+See the [v0.3.1 release notes](docs/releases/automatic-mod-compatibility-v0.3.1.md) for installation, changes and file hashes.
 
 ## Building
 
@@ -127,3 +138,4 @@ Include the Perfect Dark Mouse Injector decomp branch into your Perfect Dark dec
 - Mouse Injector for Perfect Dark decomp UI, proof of concept, building from linux; by Catherine Reprobate
 - Injectable Mouse Injector "unofficial patches" for Perfect Dark originally written by Stolen/Carnivorous
     - These unofficial patches were ported to the Perfect Dark decompilation compatability patches by Catherine Repbrobate, Graslu, and HackBond
+
