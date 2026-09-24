@@ -287,10 +287,22 @@ static unsigned int GE_FindMatchEnded(void)
 			const unsigned int first = GE_MakeAddress(EMU_ReadROM(offset), EMU_ReadROM(offset + 4));
 			const unsigned int second = GE_MakeAddress(EMU_ReadROM(offset + 8), EMU_ReadROM(offset + 12));
 			const unsigned int third = GE_MakeAddress(EMU_ReadROM(offset + 16), EMU_ReadROM(offset + 24));
-			if((first & 0xFF800003U) != 0x80000000U || second != first + 4 || third != first + 0x18)
+			unsigned int ended;
+			/* Rebuilt GE code can reverse the allocation order of the two
+			 * round flags. The same unpause initializer clears both flags,
+			 * with the paused flag 0x18 after the game-over flag. */
+			if((first & 0xFF800003U) != 0x80000000U
+				|| (second & 0xFF800003U) != 0x80000000U
+				|| (third & 0xFF800003U) != 0x80000000U)
+				continue;
+			if(second == first + 4 && third == first + 0x18)
+				ended = first;
+			else if(first == second + 4 && third == second + 0x18)
+				ended = second;
+			else
 				continue;
 			if(match) return 0;
-			match = first;
+			match = ended;
 		}
 	}
 	return match;
