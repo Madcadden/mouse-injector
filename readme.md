@@ -6,9 +6,9 @@
 
 Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**, which includes the matching injector.
 
-Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
+Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus's Native Test Mode. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
-The v0.3.2 download has been updated in place. Existing v0.2.2 emulator users can replace only `plugin/Mouse_Injector.dll` and cold-boot the ROM.
+The Native Test Mode exit fix is included in the updated **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**. Install its updated `1964.exe` and cold-boot the ROM; the Mouse Injector v0.3.2 DLL is unchanged.
 
 The current release includes GoldenEye Plus Map Maker controls, automatic mod discovery and existing settings support. Normal W+S input is retained. See the [current documentation](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility) for controls and compatibility limits.
 
