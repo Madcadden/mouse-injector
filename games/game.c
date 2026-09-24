@@ -79,7 +79,13 @@ void GAME_Inject(void)
 //==========================================================================
 void GAME_Quit(void)
 {
-	if(CURRENT_GAME != NULL)
-		CURRENT_GAME->Quit();
+	/* A failed Status() clears CURRENT_GAME, but either driver may still
+	 * retain a ROM scan result. Reset all drivers on every ROM close. */
+	for(int i = 0; i < upper; i++)
+	{
+		const GAMEDRIVER *driver = *GAMELIST[i];
+		if(driver != NULL)
+			driver->Quit();
+	}
 	CURRENT_GAME = NULL;
 }

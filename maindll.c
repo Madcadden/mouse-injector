@@ -33,6 +33,9 @@
 #endif
 #include "vkey.h"
 
+/* Called synchronously at the emulator's post-IPL game-entry boundary. */
+extern void GE_PrepareROM(void);
+
 #define DLLEXPORT __declspec(dllexport)
 #define CALL __cdecl
 
@@ -57,7 +60,7 @@ struct DEVICE_STRUCT DEVICE[4]; // global device struct
 
 const unsigned char **rdramptr = 0; // pointer to emulator's rdram table
 const unsigned char **romptr = 0; // pointer to emulator's loaded rom
-int stopthread = 1; // 1 to end inject thread
+volatile int stopthread = 1; // 1 to end inject thread
 int mousetogglekey = 0x34; // default key is 4
 int mousetoggle = 0; // mouse lock
 int mouselockonfocus = 0; // lock mouse when 1964 is focused
@@ -188,6 +191,8 @@ static void StartInjection(void)
 	{
 		stopthread = 0;
 		injectthread = CreateThread(NULL, 0, DEV_InjectThread, NULL, 0, NULL); // start thread, return thread identifier
+		if(injectthread == NULL)
+			stopthread = 1;
 	}
 }
 //==========================================================================
@@ -196,10 +201,14 @@ static void StartInjection(void)
 //==========================================================================
 static void StopInjection(void)
 {
-	if(!stopthread) // check if thread is running
+	if(injectthread != NULL)
 	{
 		stopthread = 1;
+		/* The worker resets game scan caches when it exits. Finish that reset
+		 * before preparing another ROM or allowing the emulator to free it. */
+		WaitForSingleObject(injectthread, INFINITE);
 		CloseHandle(injectthread);
+		injectthread = NULL;
 	}
 }
 //==========================================================================
@@ -1024,6 +1033,8 @@ DLLEXPORT void CALL RomClosed(void)
 {
 	mousetoggle = 0;
 	StopInjection();
+	romptr = 0;
+	rdramptr = 0;
 }
 //==========================================================================
 // Purpose: Called when a ROM is open (from the emulation thread)
@@ -1071,5 +1082,10 @@ DLLEXPORT void CALL HookRDRAM(DWORD *Mem, int OCFactor)
 //==========================================================================
 DLLEXPORT void CALL HookROM(DWORD *Rom)
 {
+	const int restart = !stopthread;
+	StopInjection();
 	romptr = (const unsigned char **)Rom;
+	GE_PrepareROM();
+	if(restart)
+		StartInjection();
 }

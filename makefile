@@ -79,7 +79,7 @@ $(OBJDIR)game.o: $(GAMESDIR)game.c $(GAMESDIR)game.h
 $(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)goldeneye.c -o $(OBJDIR)goldeneye.o $(CFLAGS) $(WARNINGS)
 
-$(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
+$(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(GAMESDIR)perfectdark.h $(GAMESDIR)perfectdark.compat.h $(GAMESDIR)perfectdark.signatures.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)perfectdark.c -o $(OBJDIR)perfectdark.o $(CFLAGS) $(WARNINGS)
 
 $(OBJDIR)ui.res: $(RCFILE) $(RESOURCEFILE)

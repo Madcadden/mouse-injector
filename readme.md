@@ -25,6 +25,21 @@ support use the automatically resolved layout.
 
 No ROMs, ROM patches, game assets, or save files are included.
 
+## Development candidate: FOV and Perfect Dark discovery
+
+GoldenEye FOV, related viewmodel data and supported controller/aim patches are
+resolved independently. GoldenEye 007 Plus uses different pause and multiplayer
+globals; these are resolved from code references. At cold boot the matching
+emulator prepares ROM code before the mod copies it into RAM.
+
+Perfect Dark runtime globals, FOV/zoom and supported settings are found from
+unique instruction windows. The legacy PD cursor/reload trampolines require
+their fully verified canonical layout. Rewritten Plus reload, reverse-pitch,
+aspect/HUD patterns are skipped rather than receiving retail replacements.
+
+This is a development candidate, not a claim that every mod works. Use both
+new binaries, restart the ROM, and test gameplay before promoting a release.
+
 ## Building
 
 `make clean` is required when builing a new Mouse Injector configuration

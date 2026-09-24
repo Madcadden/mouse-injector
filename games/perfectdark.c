@@ -19,6 +19,7 @@
 // along with this program; if not, visit http://www.gnu.org/licenses/gpl-2.0.html
 //==========================================================================
 #include <math.h>
+#include <time.h>
 #include "../global.h"
 #include "../maindll.h"
 #include "game.h"
@@ -29,6 +30,130 @@
 #include "perfectdark.cached.h"
 #endif
 #include "perfectdark.h"
+
+#if !PD_DECOMP
+#include "perfectdark.compat.h"
+static PD_COMPAT_PROFILE pdcompat;
+static time_t pdlastprobe;
+static int pdhookstate;
+
+static int PD_ReadMapped(void *context, unsigned int address, unsigned int *word)
+{
+	(void)context;
+	if(!WITHINRANGE(address) || (address & 3) || rdramptr[address >> 12] == 0)
+		return 0;
+	*word = (unsigned int)EMU_ReadInt(address);
+	return 1;
+}
+
+static int PD_ResolveCompatibility(void)
+{
+	time_t now;
+	if(pdcompat.valid)
+		return 1;
+	if(!romptr || !rdramptr)
+		return 0;
+	/* Avoid repeated 8 MiB scans while unrelated games are running. Most mods
+	 * retain either Perfect Dark's title prefix or the PD cartridge ID. */
+	if((EMU_ReadROM(0x3C) & 0xFFFF0000U) != 0x50440000U && EMU_ReadROM(0x20) != 0x50657266U)
+		return 0;
+	now = time(0);
+	if(pdlastprobe == now)
+		return 0;
+	pdlastprobe = now;
+	return PD_CompatResolve(PD_ReadMapped, 0, &pdcompat);
+}
+
+static int PD_SettingOriginal(unsigned int index)
+{
+	unsigned int word;
+	return pdcompat.matches[index] && PD_ReadMapped(0, PD_CompatTarget(&pdcompat, index), &word) && word == pdcompat.original[index];
+}
+
+static int PD_SettingWritable(unsigned int index, unsigned int replacement)
+{
+	unsigned int word;
+	return pdcompat.matches[index] && PD_ReadMapped(0, PD_CompatTarget(&pdcompat, index), &word) &&
+		(word == pdcompat.original[index] || word == replacement);
+}
+
+#ifndef SPEEDRUN_BUILD
+static void PD_AdjustViewModels(void)
+{
+	unsigned int pointers[64], first, word;
+	int index, prior;
+	/* This optional data-only tweak still requires the original weapon table.
+	 * Validate the whole table before writing and do not apply offsets twice to
+	 * shared entries. Relocated data layouts receive the FOV override alone. */
+	if(pdcompat.menu != 0x80070750U || pdcompat.camera != 0x8009A26CU ||
+		!PD_ReadMapped(0, PD_weapontable, &first) || !PD_ReadMapped(0, first + 0x30, &word) || word != 0xC2240000U)
+		return;
+	for(index = 0; index < 64; index++)
+	{
+		if(!PD_ReadMapped(0, PD_weapontable + index * 4, &pointers[index]) ||
+			!PD_ReadMapped(0, pointers[index] + 0x30, &word) ||
+			!PD_ReadMapped(0, pointers[index] + 0x34, &word) ||
+			!isfinite(EMU_ReadFloat(pointers[index] + 0x30)) ||
+			!isfinite(EMU_ReadFloat(pointers[index] + 0x34)))
+			return;
+	}
+	for(index = 0; index < 64; index++)
+	{
+		for(prior = 0; prior < index; prior++)
+			if(pointers[prior] == pointers[index])
+				break;
+		if(prior != index)
+			continue;
+		EMU_WriteFloat(pointers[index] + 0x30, EMU_ReadFloat(pointers[index] + 0x30) - (OVERRIDEFOV - 60) / 11.f);
+		EMU_WriteFloat(pointers[index] + 0x34, EMU_ReadFloat(pointers[index] + 0x34) + (OVERRIDEFOV - 60) / 3.f);
+	}
+}
+#endif
+
+#undef JOANNADATA
+#undef PD_menu
+#undef PD_camera
+#undef PD_pause
+#undef PD_stageid
+#undef PD_mppause
+#undef PD_introcounter
+#define JOANNADATA(X) (unsigned int)EMU_ReadInt(pdcompat.players + (X) * 4)
+#define PD_menu(X) (pdcompat.menu + (X) * 4)
+#define PD_camera pdcompat.camera
+#define PD_pause pdcompat.pause
+#define PD_stageid pdcompat.stage
+#define PD_mppause pdcompat.mppause
+#define PD_introcounter pdcompat.intro
+#undef PD_defaultfov
+#define PD_defaultfov PD_CompatTarget(&pdcompat, PDS_FOV)
+#undef PD_defaultfovzoom
+#define PD_defaultfovzoom PD_CompatTarget(&pdcompat, PDS_FOVZOOM)
+#undef PD_defaultzoominspeed
+#define PD_defaultzoominspeed PD_CompatTarget(&pdcompat, PDS_ZOOMIN)
+#undef PD_defaultzoomoutspeed
+#define PD_defaultzoomoutspeed PD_CompatTarget(&pdcompat, PDS_ZOOMOUT)
+#undef PD_controlstyle
+#define PD_controlstyle PD_CompatTarget(&pdcompat, PDS_CONTROL)
+#undef PD_reversepitch
+#define PD_reversepitch PD_CompatTarget(&pdcompat, PDS_PITCH)
+#undef PD_camspylookspringup
+#define PD_camspylookspringup PD_CompatTarget(&pdcompat, PDS_SPYUP)
+#undef PD_camspylookspringdown
+#define PD_camspylookspringdown PD_CompatTarget(&pdcompat, PDS_SPYDOWN)
+#undef PD_radialmenutimer
+#define PD_radialmenutimer PD_CompatTarget(&pdcompat, PDS_RADIAL)
+#undef PD_blurfix
+#define PD_blurfix PD_CompatTarget(&pdcompat, PDS_BLUR)
+#undef PD_hiresoption
+#define PD_hiresoption PD_CompatTarget(&pdcompat, PDS_HIRES)
+#undef PD_pickupyaxisthreshold
+#define PD_pickupyaxisthreshold PD_CompatTarget(&pdcompat, PDS_PICKUP)
+#undef PD_radialmenualphainit
+#define PD_radialmenualphainit PD_CompatTarget(&pdcompat, PDS_ALPHA)
+#undef PD_defaultratio
+#define PD_defaultratio PD_CompatTarget(&pdcompat, PDS_RATIO)
+#endif
+
 
 #define GUNAIMLIMIT 14.12940025 // 0x41621206
 #define CROSSHAIRLIMIT 18.76135635 // 0x41961742
@@ -114,8 +239,10 @@ int PD_Status(void)
 	const int pd_menu = EMU_ReadInt(PD_menu(PLAYER1)), pd_camera = EMU_ReadInt(PD_camera), pd_pause = EMU_ReadInt(PD_pause)/* , pd_romcheck = EMU_ReadInt(PD_debugtext) */;
 	return (pd_menu >= 0 && pd_menu <= 1 && pd_camera >= 0 && pd_camera <= 7 && pd_pause >= 0 && pd_pause <= 1 /* && pd_romcheck == 0x206F6620 */); // if Perfect Dark is current game
 	#else
-	const int pd_menu = EMU_ReadInt(PD_menu(PLAYER1)), pd_camera = EMU_ReadInt(PD_camera), pd_pause = EMU_ReadInt(PD_pause), pd_romcheck = EMU_ReadInt(PD_debugtext);
-	return (pd_menu >= 0 && pd_menu <= 1 && pd_camera >= 0 && pd_camera <= 7 && pd_pause >= 0 && pd_pause <= 1 && pd_romcheck == 0x206F6620); // if Perfect Dark is current game
+	if(!PD_ResolveCompatibility())
+		return 0;
+	const int pd_menu = EMU_ReadInt(PD_menu(PLAYER1)), pd_camera = EMU_ReadInt(PD_camera), pd_pause = EMU_ReadInt(PD_pause);
+	return (pd_menu >= 0 && pd_menu <= 1 && pd_camera >= 0 && pd_camera <= 7 && pd_pause >= 0 && pd_pause <= 1);
 	#endif
 }
 //==========================================================================
@@ -142,7 +269,11 @@ void PD_Inject(void)
 		const int grabflag = EMU_ReadInt(playerbase[player] + PD_grabflag);
 		const unsigned int bikebase = EMU_ReadInt((unsigned int)EMU_ReadInt(playerbase[player] + PD_bikeptr) + PD_bikebase);
 		const int thirdperson = EMU_ReadInt(playerbase[player] + PD_thirdperson);
-		const int cursoraimingflag = PROFILE[player].SETTINGS[PDAIMMODE] && aimingflag && EMU_ReadInt(playerbase[player] + PD_currentweapon) != 50; // don't use cursoraiming when using the horizon scanner
+		const int cursoraimingflag =
+#if !PD_DECOMP
+			pdhookstate &&
+#endif
+			PROFILE[player].SETTINGS[PDAIMMODE] && aimingflag && EMU_ReadInt(playerbase[player] + PD_currentweapon) != 50; // don't use cursoraiming when using the horizon scanner
 		const float fov = EMU_ReadFloat(playerbase[player] + PD_fov);
 		const float basefov = fov > 60.0f ? (float)OVERRIDEFOV : 60.0f;
 		const float mouseaccel = PROFILE[player].SETTINGS[ACCELERATION] ? sqrt(DEVICE[player].XPOS * DEVICE[player].XPOS + DEVICE[player].YPOS * DEVICE[player].YPOS) / TICKRATE / 12.0f * PROFILE[player].SETTINGS[ACCELERATION] : 0;
@@ -492,20 +623,27 @@ static void PD_Controller(void)
 //==========================================================================
 static void PD_InjectHacks(void)
 {
+#if !PD_DECOMP
+	unsigned int hookdelta = 0;
+	const int installhooks = !pdhookstate && PD_CompatLegacyHooks(PD_ReadMapped, 0, &pdcompat, &hookdelta);
+	if(!pdcompat.valid)
+		return;
 	const int addressarray[33] = {0x802C07B8, 0x802C07BC, 0x802C07EC, 0x802C07F0, 0x802C07FC, 0x802C0800, 0x802C0808, 0x802C0820, 0x802C0824, 0x802C082C, 0x802C0830, 0x803C7988, 0x803C798C, 0x803C7990, 0x803C7994, 0x803C7998, 0x803C799C, 0x803C79A0, 0x803C79A4, 0x803C79A8, 0x803C79AC, 0x803C79B0, 0x803C79B4, 0x803C79B8, 0x803C79BC, 0x803C79C0, 0x803C79C4, 0x803C79C8, 0x803C79CC, 0x803C79D0, 0x803C79D4, 0x803C79D8, 0x803C79DC}, codearray[33] = {0x0BC69E62, 0x8EA10120, 0x0BC69E67, 0x263107A4, 0x0BC69E6B, 0x4614C500, 0x46120682, 0x0BC69E6F, 0x26100004, 0x0BC69E73, 0x4614C500, 0x54200003, 0x00000000, 0xE6B21668, 0xE6A8166C, 0x0BC281F0, 0x8EA10120, 0x50200001, 0xE6380530, 0x0BC281FD, 0x8EA10120, 0x50200001, 0xE6340534, 0x0BC28201, 0x8EA10120, 0x50200001, 0xE6380530, 0x0BC2820A, 0x8EA10120, 0x50200001, 0xE6340534, 0x0BC2820D, 0x00000000}; // add branch to crosshair code so cursor aiming mode is absolute (without jitter)
-	for(int index = 0; index < 33; index++) // inject code array
-		EMU_WriteInt(addressarray[index], codearray[index]);
+	if(installhooks)
+		for(int index = 0; index < 33; index++)
+			EMU_WriteInt(addressarray[index] + hookdelta, codearray[index]);
 	if((unsigned int)EMU_ReadInt(PD_camspylookspringup) == 0xE4640028) // add code to remove look spring logic for camspy
 		EMU_WriteInt(PD_camspylookspringup, 0x00000000); // replace instruction with nop
 	if((unsigned int)EMU_ReadInt(PD_camspylookspringdown) == 0xE4680028) // add code to remove look spring logic for camspy
 		EMU_WriteInt(PD_camspylookspringdown, 0x00000000); // replace instruction with nop
 #ifndef SPEEDRUN_BUILD // gives unfair advantage, remove for speedrun build
 	const int reloadhack_address[22] = {0x8038A218, 0x8038A21C, 0x8038A228, 0x8038A22C, 0x8038A230, 0x8038A234, 0x8038A238, 0x8038A23C, 0x8038A240, 0x8038A244, 0x8038A248, 0x8038A24C, 0x8038A250, 0x8038A254, 0x8038A258, 0x8038A25C, 0x8038A268, 0x8038A270, 0x803C79E0, 0x803C79E4, 0x803C79E8, 0x803C79EC}, reloadhack_code[22] = {0x13000003, 0x00000000, 0x8E020480, 0x5440000B, 0x804C0037, 0x3C04800A, 0x8C84A24C, 0x0C005408, 0x34050040, 0x1040000B, 0x00000000, 0x0FC28886, 0x00002025, 0x0BC69E78, 0x00000000, 0x1180FFF5, 0x00000000, 0x34040001, 0x0FC28886, 0x34040001, 0x0BC5A89D, 0x00000000}; // add reload button hack
-	for(int index = 0; index < 22; index++) // inject code array
-		EMU_WriteInt(reloadhack_address[index], reloadhack_code[index]);
-	if((unsigned int)EMU_ReadInt(PD_controlstyle) == 0x9042C7FC) // if safe to overwrite
+	if(installhooks)
+		for(int index = 0; index < 22; index++)
+			EMU_WriteInt(reloadhack_address[index] + hookdelta, reloadhack_code[index]);
+	if(PD_SettingOriginal(PDS_CONTROL)) // if safe to overwrite
 		EMU_WriteInt(PD_controlstyle, 0x34020001); // always force game to use 1.2 control style
-	if((unsigned int)EMU_ReadInt(PD_reversepitch) == 0x000F102B) // if safe to overwrite
+	if(PD_SettingOriginal(PDS_PITCH)) // if safe to overwrite
 		EMU_WriteInt(PD_reversepitch, 0x34020001); // always force game to use upright pitch
 	if((unsigned int)EMU_ReadInt(PD_pickupyaxisthreshold) == 0xBF4907A9) // if safe to overwrite
 		EMU_WriteFloat(PD_pickupyaxisthreshold, -60.f * PI / 180.f); // overwrite default y axis limit for picking up items (from -45 to -60)
@@ -517,42 +655,41 @@ static void PD_InjectHacks(void)
 		EMU_WriteInt(PD_blurfix, 0xA46002D8); // replace nop with sh $r0, 0x02D8 ($v1)
 	if((unsigned int)EMU_ReadInt(PD_hiresoption) == 0x24040001) // disable hires mode due (only benefits console/LLE plugins which are unsupported by 1964) 
 		EMU_WriteInt(PD_hiresoption, 0x24040000); // always set to false
-	if(OVERRIDEFOV != 60) // override default fov
+	if(installhooks)
+		pdhookstate = 1;
+	if(OVERRIDEFOV != 60 && PD_defaultfov && PD_defaultfovzoom) // paired default and zoom FOV sites must both resolve
 	{
 		float newfov = OVERRIDEFOV;
 		unsigned int unsignedinteger = *(unsigned int *)(float *)(&newfov);
-		EMU_WriteInt(PD_defaultfov, 0x3C010000 + (short)(unsignedinteger / 0x10000));
-		EMU_WriteInt(PD_defaultfovzoom, 0x3C010000 + (short)(unsignedinteger / 0x10000));
-		if(!bypassviewmodelfovtweak) // allow user to bypass viewmodel position compensation for override fov (so they can see more detail at the expense of displaying animation culling keyframes)
-		{
-			if((unsigned int)EMU_ReadInt(EMU_ReadInt(PD_weapontable) + 0x30) == 0xC2240000) // if first weapon slot position is default
-			{
-				for(int index = 0; index < 64; index++) // cycle through first 64 weapons
-				{
-					const unsigned int weaponptr = EMU_ReadInt(PD_weapontable + (index * 4)); // get pointer for weapon slot
-					const float fovoffset = OVERRIDEFOV - 60;
-					const float weaponypos = EMU_ReadFloat(weaponptr + 0x30) - (fovoffset / (2.75f * 4.f)); // adjust weapon Y/Z positions for override field of view
-					const float weaponzpos = EMU_ReadFloat(weaponptr + 0x34) + (fovoffset / 3.f);
-					EMU_WriteFloat(weaponptr + 0x30, weaponypos);
-					EMU_WriteFloat(weaponptr + 0x34, weaponzpos);
-				}
-			}
-		}
-		if(OVERRIDEFOV > 60)
+		const unsigned int fovword = 0x3C010000U | (unsignedinteger >> 16);
+		if(!PD_SettingWritable(PDS_FOV, fovword) || !PD_SettingWritable(PDS_FOVZOOM, fovword))
+			return;
+		EMU_WriteInt(PD_defaultfov, fovword);
+		EMU_WriteInt(PD_defaultfovzoom, fovword);
+		if(!bypassviewmodelfovtweak)
+			PD_AdjustViewModels();
+		if(OVERRIDEFOV > 60 && PD_defaultzoominspeed && PD_defaultzoomoutspeed)
 		{
 			newfov = 15.f / (OVERRIDEFOV / 60.f);
 			unsignedinteger = *(unsigned int *)(float *)(&newfov);
-			EMU_WriteInt(PD_defaultzoominspeed, 0x3C010000 + (short)(unsignedinteger / 0x10000)); // adjust zoom in speed default (15.f)
+			if(PD_SettingWritable(PDS_ZOOMIN, 0x3C010000U | (unsignedinteger >> 16)))
+				EMU_WriteInt(PD_defaultzoominspeed, 0x3C010000U | (unsignedinteger >> 16)); // adjust zoom in speed default (15.f)
 			newfov = 30.f * (OVERRIDEFOV / 60.f);
 			unsignedinteger = *(unsigned int *)(float *)(&newfov);
-			EMU_WriteInt(PD_defaultzoomoutspeed, 0x3C010000 + (short)(unsignedinteger / 0x10000)); // adjust zoom out speed default (30.f)
+			if(PD_SettingWritable(PDS_ZOOMOUT, 0x3C010000U | (unsignedinteger >> 16)))
+				EMU_WriteInt(PD_defaultzoomoutspeed, 0x3C010000U | (unsignedinteger >> 16)); // adjust zoom out speed default (30.f)
 		}
 	}
 	if((unsigned int)EMU_ReadInt(PD_defaultratio) == 0x3FAAAAAB && (overrideratiowidth != 16 || overrideratioheight != 9)) // override default 16:9 ratio
 		EMU_WriteFloat(PD_defaultratio, ((float)overrideratiowidth / (float)overrideratioheight) / (4.f / 3.f));
 #endif
+#if !PD_DECOMP
+	if(installhooks)
+		pdhookstate = 1;
+#endif
 	if(CONTROLLER[PLAYER1].Z_TRIG && CONTROLLER[PLAYER1].R_TRIG) // skip intros if holding down fire + aim
 		EMU_WriteInt(PD_introcounter, 0x00001000);
+#endif
 }
 //==========================================================================
 // Purpose: run when emulator closes rom
@@ -560,6 +697,11 @@ static void PD_InjectHacks(void)
 //==========================================================================
 void PD_Quit(void)
 {
+#if !PD_DECOMP
+	memset(&pdcompat, 0, sizeof(pdcompat));
+	pdlastprobe = 0;
+	pdhookstate = 0;
+#endif
 	for(int player = PLAYER1; player < ALLPLAYERS; player++)
 	{
 		playerbase[player] = 0;

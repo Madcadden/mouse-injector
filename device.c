@@ -43,7 +43,7 @@ int windowactive = 1; // is emulator window active?
 
 int DEV_Init(void);
 void DEV_Quit(void);
-DWORD WINAPI DEV_InjectThread();
+DWORD WINAPI DEV_InjectThread(LPVOID parameter);
 int DEV_ReturnKey(void);
 int DEV_ReturnDeviceID(const int devicetype);
 const char *DEV_Name(const int id);
@@ -90,8 +90,9 @@ void DEV_Quit(void)
 // Purpose: Polls ManyMouse for input and injects into game
 // Changes Globals: a lot
 //==========================================================================
-DWORD WINAPI DEV_InjectThread()
+DWORD WINAPI DEV_InjectThread(LPVOID parameter)
 {
+	(void)parameter;
 	ManyMouseEvent event; // hold current input event (movement, buttons, ect)
 	memset(&DEVICE, 0, sizeof(DEVICE)); // clear device struct
 	int checkwindowtick = 0; // check if emulator window is in focus
