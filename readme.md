@@ -5,9 +5,9 @@
 
 This fork provides automatic mod compatibility for GoldenEye and Perfect Dark, alongside the separate Perfect Dark decomp build. Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**, whose ZIP already includes the matching injector.
 
-## Watch-menu mouse navigation
+## Map Maker pause-menu mouse navigation
 
-Watch-menu mouse navigation is available **only in GoldenEye 007 Plus**, where the Map Maker options are located. Other GoldenEye ROMs keep keyboard/controller navigation in the watch. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
+Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
 The v0.3.2 download has been updated in place. Existing v0.2.2 emulator users can replace only `plugin/Mouse_Injector.dll` and cold-boot the ROM.
 
@@ -74,7 +74,7 @@ The active tool determines the D-pad action, including module, layer or texture 
 
 Free-camera mouse look uses your sensitivity, acceleration and invert-pitch settings. It pauses while the editor menu or test preview is active. Orbit mode retains its native keyboard controls; test-preview mouse controls are not added.
 
-The Basic/Advanced chooser and editor menu support pointer selection and clicks. Click the left or right side of Material, Music and Grid Size values to adjust them. Only GoldenEye 007 Plus's watch menu uses mouse movements for directional selection, with left-click to accept and right-click for the native Back action; Enter closes the main watch. Other GoldenEye ROMs keep keyboard/controller watch navigation. Multiplayer and confirmation menu mouse controls are unchanged. Held clicks are released across menu transitions to avoid accidental placement or firing.
+The Basic/Advanced chooser and editor menu support pointer selection and clicks. Click the left or right side of Material, Music and Grid Size values to adjust them. Mouse navigation while paused is limited to the Map Maker's editing menus. Regular gameplay watch menus in every GoldenEye ROM, including Plus, retain keyboard/controller navigation. Multiplayer and confirmation menu mouse controls are unchanged. Held clicks are released across menu transitions to avoid accidental placement or firing.
 
 ### Input settings
 
