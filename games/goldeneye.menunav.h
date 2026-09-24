@@ -1,5 +1,5 @@
-/* Native watch and multiplayer menus use direction/button input rather than
- * the frontend crosshair. Keep this adapter local to those active menus. */
+/* Native multiplayer and frontend panels use direction/button input rather
+ * than the frontend crosshair. Keep this adapter local to those active menus. */
 typedef struct GE_MENU_NATIVE_STATE
 {
 	float x, y;
@@ -20,7 +20,7 @@ static int GE_MenuNativeContext(const int player)
 	const unsigned int base = playerbase[player];
 	const GE_ADDRESS_PROFILE *profile = GE_GetAddressProfile();
 	const int page = EMU_ReadInt(profile->menupage);
-	int dead, watch, multiplayer, ended;
+	int dead, multiplayer, ended;
 	if(PROFILE[player].SETTINGS[CONFIG] == DISABLED || !mousetoggle)
 		return 0;
 	/* These frontend panels read each player's left/right controller
@@ -39,14 +39,11 @@ static int GE_MenuNativeContext(const int player)
 		|| (base & 0x7FFFFFU) > 0x800000U - GE_multipausemenu - 4)
 		return 0;
 	dead = EMU_ReadInt(base + GE_deathflag);
-	watch = EMU_ReadInt(base + GE_watch);
 	multiplayer = EMU_ReadInt(base + GE_multipausemenu);
 	ended = EMU_ReadInt(GE_matchended);
-	/* Watch mouse navigation belongs to Plus and its verified Map Maker.
-	 * The native watch handler runs only in animation state 5; other
-	 * nonzero values are opening, closing or mission-exit transitions. */
-	if(profile->mapmaker.page && player == PLAYER1 && watch == 5 && dead == 0 && multiplayer == 0)
-		return 1;
+	/* The gameplay watch keeps its native controls in every ROM, including
+	 * Plus Native Test Mode. Map Maker's separate editor pause menu is
+	 * handled by GE_MapMakerMenuMouse using its verified page and state. */
 	/* A round-end countdown >= 2 does not accept input yet. Ordinary death
 	 * without a completed round does not expose a multiplayer menu either. */
 	if(multiplayer == 1 && (ended == 0 || ended == 1)
@@ -156,8 +153,8 @@ static void GE_MenuNativeInputs(void)
 			|| (fire && !state->waitfire);
 		CONTROLLER[player].Z_TRIG = 0; // weapon-wheel aliases must not accept or fire in menus
 		CONTROLLER[player].B_BUTTON |= DEVICE[player].BUTTONPRIM[AIM] || DEVICE[player].BUTTONSEC[AIM];
-		/* Aim is Back here. Sending its usual R at the same time would turn
-		 * the watch page as well. Preserve the dedicated physical shoulder. */
+		/* Aim is Back here. Suppress its gameplay R alias while preserving
+		 * the dedicated physical shoulder. */
 #if !PD_DECOMP
 		CONTROLLER[player].R_TRIG = DEVICE[player].BUTTONPRIM[R_SHOULDER] || DEVICE[player].BUTTONSEC[R_SHOULDER];
 #else

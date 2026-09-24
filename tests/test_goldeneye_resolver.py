@@ -569,8 +569,8 @@ static void assert_mapmaker_menu_input(const GE_ADDRESS_PROFILE *p)
     DEVICE[0].BUTTONPRIM[AIM] = DEVICE[0].BUTTONPRIM[R_SHOULDER] = 0;
     DEVICE[0].BUTTONPRIM[PREVIOUSWEAPON] = DEVICE[0].BUTTONSEC[NEXTWEAPON] = 1;
     editor_frame(2); assert(!CONTROLLER[0].A_BUTTON && !CONTROLLER[0].Z_TRIG);
-    DEVICE[0].BUTTONPRIM[ACCEPT] = DEVICE[0].BUTTONPRIM[CANCEL] = 1;
-    editor_frame(2); assert(CONTROLLER[0].A_BUTTON && CONTROLLER[0].B_BUTTON);
+    DEVICE[0].BUTTONPRIM[ACCEPT] = DEVICE[0].BUTTONPRIM[CANCEL] = DEVICE[0].BUTTONPRIM[START] = 1;
+    editor_frame(2); assert(CONTROLLER[0].A_BUTTON && CONTROLLER[0].B_BUTTON && CONTROLLER[0].START_BUTTON);
 
     /* The two chooser rows have separate geometry and selector storage. */
     for(int row = 0; row < 2; row++)
@@ -631,6 +631,7 @@ static void assert_mapmaker_menu_input(const GE_ADDRESS_PROFILE *p)
         case 10: mousetoggle = 0; break;
         }
         editor_frame(gate == 8 ? 4 : 2); mousetoggle = 1;
+        if(gate != 8) assert(!ge_menu_mouse_context);
         assert(EMU_ReadFloat(m->yaw) == 1.f && EMU_ReadFloat(m->pitch) == 0.f);
     }
     /* Zero movement sensitivity still permits clicks, and recapturing a
@@ -656,8 +657,24 @@ static void assert_mapmaker_menu_input(const GE_ADDRESS_PROFILE *p)
     DEVICE[0].BUTTONPRIM[FIRE] = 0; editor_frame(2);
     DEVICE[0].BUTTONPRIM[FIRE] = 1; editor_frame(2); assert(CONTROLLER[0].Z_TRIG);
     EMU_WriteInt(m->menu, 0); editor_frame(2); assert(!CONTROLLER[0].Z_TRIG);
-    EMU_WriteInt(p->menupage, 11); EMU_WriteInt(p->pause, 1); editor_frame(2);
-    assert(!CONTROLLER[0].Z_TRIG);
+    /* Native Test Mode leaves the editor for ordinary gameplay page 11.
+     * Its watch must not inherit editor click or mouse-direction routing. */
+    EMU_WriteInt(p->menupage, 11); EMU_WriteInt(p->pause, 1);
+    EMU_WriteInt(0x80100000 + GE_watch, 5);
+    DEVICE[0].XPOS = 100; DEVICE[0].YPOS = -100; editor_frame(2);
+    assert(!ge_menu_mouse_context && !GE_MenuNativeContext(0));
+    assert(!CONTROLLER[0].Z_TRIG && !CONTROLLER[0].A_BUTTON && !dpad_bits(0));
+    assert(!ge_menu_native[0].heldms && !ge_menu_native[0].releasems);
+    assert(!ge_menu_native[0].x && !ge_menu_native[0].y);
+    DEVICE[0].BUTTONPRIM[FIRE] = 0; editor_frame(2);
+    DEVICE[0].BUTTONPRIM[FIRE] = 1; editor_frame(2);
+    assert(CONTROLLER[0].Z_TRIG && !CONTROLLER[0].A_BUTTON && !dpad_bits(0));
+    /* Returning from gameplay with Fire held does not manufacture a fresh
+     * editor selection. A deliberate release and click still works. */
+    EMU_WriteInt(p->menupage, m->page); EMU_WriteInt(m->menu, 1);
+    EMU_WriteInt(0x80100000 + GE_watch, 0);
+    DEVICE[0].XPOS = DEVICE[0].YPOS = 0; editor_frame(2);
+    assert(ge_menu_mouse_context == 1 && !CONTROLLER[0].Z_TRIG && !dpad_bits(0));
     DEVICE[0].BUTTONPRIM[FIRE] = 0; editor_frame(2);
     DEVICE[0].BUTTONPRIM[FIRE] = 1; editor_frame(2); assert(CONTROLLER[0].Z_TRIG);
     GAME_Quit();
@@ -692,16 +709,16 @@ static void assert_native_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
 {
     const unsigned int base = 0x80100000;
     assert((p->mapmaker.page != 0) == plus);
-    /* Only Plus's fully open watch accepts mouse gestures. Other ROMs,
-     * and all opening/closing animations, retain native controller input. */
+    /* Every gameplay watch, including Plus and its Native Test Mode,
+     * retains native input. Only the page-30 editor uses its mouse adapter. */
     for(int watch = 0; watch <= 13; watch++)
     {
         seed_native_menu(p); EMU_WriteInt(base + GE_watch, watch);
         DEVICE[0].XPOS = 100; editor_frame(2);
-        assert(GE_MenuNativeContext(0) == (plus && watch == 5 ? 1 : 0));
-        assert(dpad_bits(0) == (plus && watch == 5 ? 8U : 0U));
+        assert(!GE_MenuNativeContext(0));
+        assert(!dpad_bits(0));
     }
-    if(!plus) for(int secondary = 0; secondary < 2; secondary++)
+    for(int secondary = 0; secondary < 2; secondary++)
     {
         seed_native_menu(p); EMU_WriteInt(base + GE_watch, 5);
         DEVICE[0].XPOS = 100; DEVICE[0].YPOS = -100; editor_frame(2);
@@ -727,6 +744,20 @@ static void assert_native_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
         EMU_WriteInt(base + GE_watch, 0); editor_frame(2);
         assert(CONTROLLER[0].Z_TRIG && !CONTROLLER[0].A_BUTTON);
     }
+    /* An active native-menu gesture or click must not leak into a watch.
+     * Held menu Fire stays blocked until release, then becomes native Z. */
+    seed_native_menu(p); EMU_WriteInt(base + GE_multipausemenu, 1);
+    DEVICE[0].XPOS = 100; editor_frame(2); assert(dpad_bits(0) == 8U);
+    DEVICE[0].BUTTONPRIM[FIRE] = 1; editor_frame(2); assert(CONTROLLER[0].A_BUTTON);
+    EMU_WriteInt(base + GE_multipausemenu, 0); EMU_WriteInt(base + GE_watch, 5);
+    DEVICE[0].XPOS = 0; editor_frame(2);
+    assert(!GE_MenuNativeContext(0) && !dpad_bits(0));
+    assert(!CONTROLLER[0].A_BUTTON && !CONTROLLER[0].Z_TRIG);
+    assert(!ge_menu_native[0].context && !ge_menu_native[0].heldms && !ge_menu_native[0].releasems);
+    assert(!ge_menu_native[0].x && !ge_menu_native[0].y);
+    DEVICE[0].BUTTONPRIM[FIRE] = 0; editor_frame(2);
+    DEVICE[0].BUTTONPRIM[FIRE] = 1; editor_frame(2);
+    assert(CONTROLLER[0].Z_TRIG && !CONTROLLER[0].A_BUTTON && !dpad_bits(0));
     /* Multiplayer input is per player, accepts live pause and completed
      * results, but not the end-of-round countdown or normal death. */
     for(int ended = -1; ended <= 3; ended++)
@@ -742,11 +773,10 @@ static void assert_native_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
         }
     const int dx[] = {0,0,-100,100};
     const int dy[] = {-100,100,0,0};
-    for(int context = plus ? 1 : 2; context <= 2; context++)
-        for(int direction = 0; direction < 4; direction++)
+    for(int direction = 0; direction < 4; direction++)
         {
             seed_native_menu(p);
-            EMU_WriteInt(base + (context == 1 ? GE_watch : GE_multipausemenu), context == 1 ? 5 : 1);
+            EMU_WriteInt(base + GE_multipausemenu, 1);
             DEVICE[0].XPOS = dx[direction]; DEVICE[0].YPOS = dy[direction];
             editor_frame(2); assert(dpad_bits(0) == (1U << direction));
             DEVICE[0].XPOS = DEVICE[0].YPOS = 0;
@@ -755,10 +785,10 @@ static void assert_native_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
             assert(EMU_ReadFloat(base + GE_camx) == 45.f && EMU_ReadFloat(base + GE_camy) == 0.f);
         }
     /* Both mouse bindings activate/cancel, while the physical controls
-     * retain their existing outputs and right-click cannot turn a page. */
-    if(plus) for(int secondary = 0; secondary < 2; secondary++)
+     * retain their existing outputs and right-click cannot send the Aim shoulder. */
+    for(int secondary = 0; secondary < 2; secondary++)
     {
-        seed_native_menu(p); EMU_WriteInt(base + GE_watch, 5);
+        seed_native_menu(p); EMU_WriteInt(base + GE_multipausemenu, 1);
         editor_frame(2);
         int *buttons = secondary ? DEVICE[0].BUTTONSEC : DEVICE[0].BUTTONPRIM;
         buttons[FIRE] = buttons[AIM] = buttons[START] = 1;
@@ -769,18 +799,17 @@ static void assert_native_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
         assert(CONTROLLER[0].L_DPAD && CONTROLLER[0].X_AXIS == 127 && CONTROLLER[0].U_CBUTTON);
         buttons[R_SHOULDER] = 1; editor_frame(2); assert(CONTROLLER[0].R_TRIG);
         buttons[R_SHOULDER] = buttons[AIM] = buttons[START] = 0;
-        EMU_WriteInt(base + GE_watch, 0); editor_frame(2);
+        EMU_WriteInt(base + GE_multipausemenu, 0); editor_frame(2);
         assert(!CONTROLLER[0].A_BUTTON && !CONTROLLER[0].Z_TRIG && !CONTROLLER[0].B_BUTTON && !CONTROLLER[0].START_BUTTON);
         buttons[FIRE] = 0; editor_frame(2);
         buttons[FIRE] = 1; editor_frame(2); assert(CONTROLLER[0].Z_TRIG && !CONTROLLER[0].A_BUTTON);
     }
-    /* Held Fire while a watch opens waits for release; zero sensitivity
+    /* Held Fire while a multiplayer menu opens waits for release; zero sensitivity
      * and no selected mouse device must still allow a deliberate click. */
-    if(plus)
     {
         seed_native_menu(p); DEVICE[0].BUTTONPRIM[FIRE] = 1;
         editor_frame(2); assert(CONTROLLER[0].Z_TRIG);
-        EMU_WriteInt(base + GE_watch, 5); editor_frame(2);
+        EMU_WriteInt(base + GE_multipausemenu, 1); editor_frame(2);
         assert(!CONTROLLER[0].A_BUTTON && !CONTROLLER[0].Z_TRIG);
         DEVICE[0].BUTTONPRIM[FIRE] = 0; editor_frame(2);
         PROFILE[0].SETTINGS[SENSITIVITY] = 0;
@@ -796,7 +825,7 @@ static void assert_native_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
         DEVICE[0].BUTTONPRIM[ACCEPT] = 1; editor_frame(2); assert(CONTROLLER[0].A_BUTTON);
     }
 
-    /* A player's watch is single-player only; each MP menu is independent. */
+    /* Watches stay native for every player; MP menus are independent. */
     seed_native_menu(p);
     EMU_WriteInt(base + 0x10000 + GE_watch, 5);
     DEVICE[1].XPOS = 100; editor_frame(2); assert(!dpad_bits(1));
@@ -808,7 +837,7 @@ static void assert_native_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
      * RAM or camera writes. */
     for(int gate = 0; gate < 7; gate++)
     {
-        seed_native_menu(p); EMU_WriteInt(base + (plus ? GE_watch : GE_multipausemenu), plus ? 5 : 1);
+        seed_native_menu(p); EMU_WriteInt(base + GE_multipausemenu, 1);
         DEVICE[0].XPOS = 100;
         switch(gate)
         {
@@ -822,7 +851,7 @@ static void assert_native_menu_input(const GE_ADDRESS_PROFILE *p, int plus)
         }
         editor_frame(2); assert(!dpad_bits(0)); mousetoggle = 1;
     }
-    seed_native_menu(p); EMU_WriteInt(base + (plus ? GE_watch : GE_multipausemenu), plus ? 5 : 1);
+    seed_native_menu(p); EMU_WriteInt(base + GE_multipausemenu, 1);
     DEVICE[0].XPOS = 100; editor_frame(2); assert(dpad_bits(0));
     GAME_Quit();
     const GE_MENU_NATIVE_STATE empty = {0};
@@ -958,8 +987,8 @@ static void assert_mapmaker_resolver_guards(const char *rom)
             editor_frame(1);
             assert(CONTROLLER[0].R_TRIG && CONTROLLER[0].B_BUTTON);
             assert(EMU_ReadFloat(baseline.mapmaker.yaw) == 1.f);
-            /* A broken or ambiguous Plus proof cannot enable watch mouse
-             * input merely because the ROM has the expected title. */
+            /* A broken or ambiguous editor proof cannot affect gameplay
+             * watch input merely because the ROM has the expected title. */
             seed_native_menu(&p); EMU_WriteInt(0x80100000 + GE_watch, 5);
             DEVICE[0].XPOS = 100; editor_frame(2);
             assert(!GE_MenuNativeContext(0) && !dpad_bits(0));
@@ -1333,7 +1362,7 @@ int main(int argc, char **argv)
             assert_mapmaker_menu_resolver_guards(argv[image]);
             assert_native_reload_guards(argv[image]);
         }
-        printf("%s: production resolver, Plus-only watch mouse scope, frontend/multiplayer/Map Maker input, D-pad and shoulders, native reload, bounded writes, boot preparation, lifecycle and signature guards passed (%s)\n", plus ? "Plus" : "retail",
+        printf("%s: production resolver, editor-only pause mouse scope, frontend/multiplayer/Map Maker input, D-pad and shoulders, native reload, bounded writes, boot preparation, lifecycle and signature guards passed (%s)\n", plus ? "Plus" : "retail",
 #ifdef SPEEDRUN_BUILD
         "speedrun"
 #else
@@ -1341,14 +1370,14 @@ int main(int argc, char **argv)
 #endif
         );
     }
-    /* Reopening retail after Plus must not retain Plus's watch capability. */
+    /* Reopening retail after Plus must not retain editor mouse state. */
     for(int image = argc - 1; image >= 1; image--)
     {
         GE_ADDRESS_PROFILE p;
         loadrom(argv[image]); assert(GE_ResolveAddressProfile(&p));
         assert_native_menu_input(&p, image == 2);
     }
-    puts("Plus-to-retail reopen: watch mouse capability follows the current ROM");
+    puts("Plus-to-retail reopen: gameplay watches remain native");
     free(test_rom); return 0;
 }
 
