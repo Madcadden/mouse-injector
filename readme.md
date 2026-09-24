@@ -1,5 +1,20 @@
 # MouseInjector Plugin for 1964GEPD
 
+## Current Auto-Mod Edition
+
+**[Download Mouse Injector v0.3.1](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.1)** · **[Current source and documentation](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility)**
+
+Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.1](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.1)**, which includes the matching injector.
+
+v0.3.1 fixes missing controls in GoldenEye PD-AI v2.42. The matching emulator fixes its startup mapping. Startup and controls have been confirmed by user testing with both fixes installed. The current release also retains GoldenEye Plus Map Maker controls, automatic mod discovery, and existing settings support. Its obsolete RandomEye W+S workaround has been removed.
+
+**Build the current release from the `automatic-mod-compatibility` branch or its release tag.** The `main` branch and documentation below describe the historical implementation; its CRC-specific detection and W+S option do not describe the current Auto-Mod release.
+
+---
+
+## Historical main-branch documentation
+
+
 
 This is a fork with support for Perfect Dark decomp.
 
@@ -71,3 +86,4 @@ Include the Perfect Dark Mouse Injector decomp branch into your Perfect Dark dec
 - Mouse Injector for Perfect Dark decomp UI, proof of concept, building from linux; by Catherine Reprobate
 - Injectable Mouse Injector "unofficial patches" for Perfect Dark originally written by Stolen/Carnivorous
     - These unofficial patches were ported to the Perfect Dark decompilation compatability patches by Catherine Repbrobate, Graslu, and HackBond
+
