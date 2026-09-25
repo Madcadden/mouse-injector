@@ -52,7 +52,6 @@ typedef struct GE_ADDRESS_PROFILE
 	unsigned int introcounter;
 	unsigned int seenintroflag;
 	GE_MAPMAKER_PROFILE mapmaker;
-	int native_reload;
 } GE_ADDRESS_PROFILE;
 
 static const GE_ADDRESS_PROFILE GE_UNRESOLVED_ADDRESSES = {0};
@@ -669,27 +668,6 @@ static void GE_MapMakerLook(const GE_ADDRESS_PROFILE *profile, const float sensi
 
 #include "goldeneye.mapmenu.h"
 
-static int GE_ResolveNativeBReload(const GE_ADDRESS_PROFILE *profile)
-{
-#ifndef SPEEDRUN_BUILD
-	/* Plus retains the native B interact/reload action but rewrites the
-	 * separate reload trampoline. Offer that native action only when its
-	 * input, state getter and two-hand reload path are all recognized. */
-	static const unsigned int input[10] = {0x8E0B0000,0x8FA2005C,0x8D630124,0x30494000,0x0009602B,0x2C650001,0xAFA501E4,0xAFA50170,0xAFAC01D8,0xAFAC0040};
-	static const unsigned int mask[10] = {0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF};
-	unsigned int logic;
-	if(!profile->mapmaker.page || GE_GetReloadHackProfile()
-		|| !GE_FindUniqueROMPattern(input, mask, 10)
-		|| !GE_FindUniqueROMPattern(gereloadweaponpattern, gereloadweaponmask, 8))
-		return 0;
-	logic = GE_FindUniqueROMPattern(gereloadlogicpattern, gereloadlogicmask, 11);
-	return logic && EMU_ReadROM(logic + 0x1C) == EMU_ReadROM(logic + 0x24);
-#else
-	(void)profile;
-	return 0;
-#endif
-}
-
 /* File erase confirmation selects Yes/No from directions, not cursor
  * hit testing. Recognize the active file selector independently of menus. */
 static unsigned int GE_FindEraseSelection(const unsigned int menupage)
@@ -759,7 +737,6 @@ static int GE_ResolveAddressProfile(GE_ADDRESS_PROFILE *profile)
 	profile->introcounter = profile->menupage + 0x0C;
 	profile->seenintroflag = profile->menupage + 0x70;
 	GE_ResolveMapMakerProfile(profile);
-	profile->native_reload = GE_ResolveNativeBReload(profile);
 
 	return (profile->bonddata & 0xFF800000U) == 0x80000000U
 		&& (profile->camera & 0xFF800000U) == 0x80000000U
@@ -1079,26 +1056,6 @@ static void GE_Controller(void)
 		CONTROLLER[player].A_BUTTON = DEVICE[player].BUTTONPRIM[ACCEPT] || DEVICE[player].BUTTONSEC[ACCEPT] || DEVICE[player].BUTTONPRIM[PREVIOUSWEAPON] || DEVICE[player].BUTTONSEC[PREVIOUSWEAPON] || DEVICE[player].BUTTONPRIM[NEXTWEAPON] || DEVICE[player].BUTTONSEC[NEXTWEAPON];
 		CONTROLLER[player].B_BUTTON = DEVICE[player].BUTTONPRIM[CANCEL] || DEVICE[player].BUTTONSEC[CANCEL];
 		CONTROLLER[player].START_BUTTON = DEVICE[player].BUTTONPRIM[START] || DEVICE[player].BUTTONSEC[START];
-#ifndef SPEEDRUN_BUILD
-		if(GE_GetAddressProfile()->native_reload && CONTROLLER[player].RELOAD_HACK)
-		{
-			CONTROLLER[player].RELOAD_HACK = 0;
-			if(PROFILE[player].SETTINGS[CONFIG] != DISABLED
-				&& EMU_ReadInt(GE_menupage) == 11 && EMU_ReadInt(GE_exit) == 1
-				&& (EMU_ReadInt(GE_camera) == 4 || EMU_ReadInt(GE_camera) == 0)
-				&& EMU_ReadInt(GE_pause) == 0 && EMU_ReadInt(GE_matchended) == 0
-				&& EMU_ReadInt(playerbase[player] + GE_deathflag) == 0
-				&& EMU_ReadInt(playerbase[player] + GE_watch) == 0
-				&& EMU_ReadInt(playerbase[player] + GE_multipausemenu) == 0
-				&& !CONTROLLER[player].START_BUTTON)
-			{
-				CONTROLLER[player].B_BUTTON = 1;
-				/* R takes priority over Fire to avoid Plus's native B+Z
-				 * holster combo. E retains the original combined action. */
-				CONTROLLER[player].Z_TRIG = 0;
-			}
-		}
-#endif
 		DEVICE[player].ARROW[0] = (DEVICE[player].BUTTONPRIM[UP] || DEVICE[player].BUTTONSEC[UP]) ? 127 : 0;
 		DEVICE[player].ARROW[1] = (DEVICE[player].BUTTONPRIM[DOWN] || DEVICE[player].BUTTONSEC[DOWN]) ? (EMU_ReadInt(GE_menupage) != 11 ? -127 : -128) : 0; // clamp to -127 for menus due to overflow bug
 		DEVICE[player].ARROW[2] = (DEVICE[player].BUTTONPRIM[LEFT] || DEVICE[player].BUTTONSEC[LEFT]) ? -128 : 0;
@@ -1338,6 +1295,8 @@ static void GE_AdjustViewmodels(GE_HACK_PROFILE *profile, const int fov)
 #endif
 
 #ifndef SPEEDRUN_BUILD
+#include "goldeneye.reload.h"
+
 static void GE_InjectReloadHack(void)
 {
 	const GE_RELOAD_HACK_PROFILE *profile = GE_GetReloadHackProfile();
@@ -1386,6 +1345,7 @@ static void GE_ApplyHacks(const int romonly)
 	if(!profile) return;
 #ifndef SPEEDRUN_BUILD
 	GE_InjectReloadHack();
+	GE_InjectPlusReloadHack();
 #endif
 	if(profile->aimvalid)
 	{
