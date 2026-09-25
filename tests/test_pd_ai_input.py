@@ -20,7 +20,7 @@ static void pdai_globals(GE_ADDRESS_PROFILE *a) {
     assert(a->bonddata == 0x800803F0U && a->camera == 0x80036754U);
     assert(a->exit == 0x80036770U && a->pause == 0x800486B0U);
     assert(a->menupage == 0x8002A950U && a->maxpage == 27);
-    assert(a->matchended == 0x80092C10U && !a->mapmaker.page && !a->native_reload);
+    assert(a->matchended == 0x80092C10U && !a->mapmaker.page);
 }
 static void pdai_play(const GE_ADDRESS_PROFILE *a, int multiplayer) {
     const unsigned int player = 0x80100000U;

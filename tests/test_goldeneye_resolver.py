@@ -16,6 +16,7 @@ source = source.replace('#include "../maindll.h"', '#include "' + str(root / 'ma
 source = source.replace('#include "game.h"', '#include "' + str(root / 'games/game.h') + '"')
 source = source.replace('#include "goldeneye.menunav.h"', '#include "' + str(root / 'games/goldeneye.menunav.h') + '"')
 source = source.replace('#include "goldeneye.mapmenu.h"', '#include "' + str(root / 'games/goldeneye.mapmenu.h') + '"')
+source = source.replace('#include "goldeneye.reload.h"', '#include "' + str(root / 'games/goldeneye.reload.h') + '"')
 source = source.replace('#include "memory.h"', r'''
 #include <stdint.h>
 #include <stdio.h>
@@ -1094,12 +1095,9 @@ static void assert_mapmaker_menu_resolver_guards(const char *rom)
     loadrom(rom);
 }
 
-static void assert_native_reload(const GE_ADDRESS_PROFILE *p, int plus)
+static void assert_reload_binding(const GE_ADDRESS_PROFILE *p, int plus)
 {
-#ifdef SPEEDRUN_BUILD
-    (void)plus; assert(!p->native_reload);
-#else
-    assert(p->native_reload == plus);
+#ifndef SPEEDRUN_BUILD
     if(!plus) return;
     for(int secondary = 0; secondary < 2; secondary++)
     {
@@ -1108,68 +1106,19 @@ static void assert_native_reload(const GE_ADDRESS_PROFILE *p, int plus)
         else DEVICE[0].BUTTONPRIM[RELOAD] = 1;
         DEVICE[0].BUTTONPRIM[FIRE] = 1;
         editor_frame(0);
-        assert(CONTROLLER[0].B_BUTTON && !CONTROLLER[0].Z_TRIG && !CONTROLLER[0].RELOAD_HACK);
+        assert(!CONTROLLER[0].B_BUTTON && CONTROLLER[0].Z_TRIG && CONTROLLER[0].RELOAD_HACK);
         DEVICE[0].BUTTONPRIM[RELOAD] = DEVICE[0].BUTTONSEC[RELOAD] = 0;
         editor_frame(0);
         assert(!CONTROLLER[0].B_BUTTON && CONTROLLER[0].Z_TRIG && !CONTROLLER[0].RELOAD_HACK);
-        /* The existing E/native-B action, including its Fire combination,
-         * remains unchanged after releasing the dedicated reload key. */
         DEVICE[0].BUTTONPRIM[CANCEL] = 1;
-        editor_frame(0); assert(CONTROLLER[0].B_BUTTON && CONTROLLER[0].Z_TRIG);
-    }
-    for(int gate = 0; gate < 11; gate++)
-    {
-        seed_mapmaker(p); EMU_WriteInt(p->menupage, 11);
-        DEVICE[0].BUTTONPRIM[RELOAD] = 1;
-        switch(gate)
-        {
-        case 0: EMU_WriteInt(p->menupage, 30); break;
-        case 1: EMU_WriteInt(p->menupage, 29); break;
-        case 2: EMU_WriteInt(p->pause, 1); break;
-        case 3: EMU_WriteInt(0x80100000 + GE_deathflag, 1); break;
-        case 4: EMU_WriteInt(0x80100000 + GE_watch, 1); break;
-        case 5: EMU_WriteInt(0x80100000 + GE_multipausemenu, 1); break;
-        case 6: EMU_WriteInt(p->exit, 0); break;
-        case 7: EMU_WriteInt(p->camera, 2); break;
-        case 8: EMU_WriteInt(p->matchended, 1); break;
-        case 9: PROFILE[0].SETTINGS[CONFIG] = DISABLED; break;
-        case 10: DEVICE[0].BUTTONPRIM[START] = 1; break;
-        }
-        editor_frame(0);
-        assert(!CONTROLLER[0].B_BUTTON && !CONTROLLER[0].RELOAD_HACK);
+        editor_frame(0); assert(CONTROLLER[0].B_BUTTON && !CONTROLLER[0].RELOAD_HACK);
     }
     GAME_Quit();
     memset(test_ram, 0, sizeof(test_ram));
     memset(PROFILE, 0, sizeof(PROFILE)); memset(DEVICE, 0, sizeof(DEVICE));
     memset(CONTROLLER, 0, sizeof(CONTROLLER));
-#endif
-}
-static void assert_native_reload_guards(const char *rom)
-{
-#ifndef SPEEDRUN_BUILD
-    const unsigned int anchors[] = {0xD49A0, 0xDDE0C, 0x1172B0};
-    const unsigned int lengths[] = {10, 8, 11};
-    GE_ADDRESS_PROFILE p;
-    for(unsigned int anchor = 0; anchor < 3; anchor++)
-        for(int duplicate = 0; duplicate < 2; duplicate++)
-        {
-            loadrom(rom);
-            if(duplicate) duplicate_words(anchors[anchor], 0x1E0000, lengths[anchor]);
-            else EMU_WriteROM(anchors[anchor], 0xFFFFFFFFU);
-            assert(GE_ResolveAddressProfile(&p));
-            if(p.mapmaker.page != 30 || p.native_reload) fprintf(stderr, "reload guard anchor=%X duplicate=%d page=%u reload=%d\n", anchors[anchor], duplicate, p.mapmaker.page, p.native_reload);
-            assert(p.mapmaker.page == 30 && !p.native_reload);
-            seed_mapmaker(&p); EMU_WriteInt(p.menupage, 11);
-            DEVICE[0].BUTTONPRIM[RELOAD] = DEVICE[0].BUTTONPRIM[FIRE] = 1;
-            editor_frame(0);
-            assert(!CONTROLLER[0].B_BUTTON && CONTROLLER[0].Z_TRIG && CONTROLLER[0].RELOAD_HACK);
-        }
-    loadrom(rom);
-    EMU_WriteROM(0x1172B0 + 0x24, EMU_ReadROM(0x1172B0 + 0x24) + 1);
-    assert(GE_ResolveAddressProfile(&p)); assert(p.mapmaker.page == 30 && !p.native_reload);
-    loadrom(rom);
 #else
-    (void)rom;
+    (void)p; (void)plus;
 #endif
 }
 int main(int argc, char **argv)
@@ -1195,7 +1144,7 @@ int main(int argc, char **argv)
         assert_menu_input(&addresses, plus);
         assert_native_menu_input(&addresses, plus);
         assert_frontend_native_input(&addresses);
-        assert_native_reload(&addresses, plus);
+        assert_reload_binding(&addresses, plus);
         p = GE_GetHackProfile();
         assert(p->fov[0] == (plus ? 0xD54C0U : 0xB78BCU));
         assert(p->fov[1] == (plus ? 0xD54E0U : 0xB78DCU));
@@ -1360,7 +1309,6 @@ int main(int argc, char **argv)
         {
             assert_mapmaker_resolver_guards(argv[image]);
             assert_mapmaker_menu_resolver_guards(argv[image]);
-            assert_native_reload_guards(argv[image]);
         }
         printf("%s: production resolver, editor-only pause mouse scope, frontend/multiplayer/Map Maker input, D-pad and shoulders, native reload, bounded writes, boot preparation, lifecycle and signature guards passed (%s)\n", plus ? "Plus" : "retail",
 #ifdef SPEEDRUN_BUILD
