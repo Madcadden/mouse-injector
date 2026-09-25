@@ -9,7 +9,7 @@ This fork provides automatic mod compatibility for GoldenEye and Perfect Dark, a
 
 Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus's Native Test Mode. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
-The Map Maker texture-scrolling and Native Test Mode exit fixes in **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** now recognize GoldenEye 007 Plus by its ROM header and follow compatible relocated code, including the newer Plus release. Install its updated `1964.exe` and cold-boot the ROM; the Mouse Injector v0.3.2 DLL is unchanged.
+The Map Maker texture-scrolling and Native Test Mode exit fixes in **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** now recognize GoldenEye 007 Plus by its ROM header and follow compatible relocated code, including the newer Plus release. Install the matching `1964.exe` and `plugin/Mouse_Injector.dll` from that package, then cold-boot the ROM.
 
 The updated emulator also recognizes supported GoldenEye engine mods and selects GLideN64's existing `GOLDENEYE` profile, restoring split-screen rendering with framebuffer emulation enabled. This uses the `GOLDENEYE` graphics settings and texture-pack name. No ROM header editing or GLideN64 replacement is required.
 
@@ -44,12 +44,8 @@ emulator prepares ROM code before the mod copies it into RAM.
 
 Perfect Dark runtime globals, FOV/zoom and supported settings are found from
 unique instruction windows. The legacy PD cursor/reload trampolines require
-their fully verified canonical layout. Rewritten Plus reload, reverse-pitch,
+their fully verified canonical layout. Unsupported reverse-pitch and
 aspect/HUD patterns are skipped rather than receiving retail replacements.
-For the recognized Plus layout, R instead uses its validated native B-button
-interact/reload path during active gameplay. It takes priority over Fire while
-held to avoid the mod's B+Z holster combination. E keeps its native behaviour;
-the separate reload-only trampoline has not been ported.
 
 Missing or ambiguous code patterns are skipped. Automatic discovery does not
 guarantee compatibility with every rewritten mod. Upgrade both the emulator

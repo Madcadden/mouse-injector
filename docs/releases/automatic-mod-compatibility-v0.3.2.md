@@ -6,7 +6,7 @@ Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plu
 
 Use this plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**, which already includes the matching injector.
 
-The Map Maker texture-scrolling and Native Test Mode exit fixes in **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** now recognize GoldenEye 007 Plus by its ROM header and follow compatible relocated code, including the newer Plus release. Install its updated `1964.exe` and cold-boot the ROM; the Mouse Injector v0.3.2 DLL is unchanged.
+The Map Maker texture-scrolling and Native Test Mode exit fixes in **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** now recognize GoldenEye 007 Plus by its ROM header and follow compatible relocated code, including the newer Plus release. Install the matching `1964.exe` and `plugin/Mouse_Injector.dll` from that package, then cold-boot the ROM.
 
 The updated emulator also recognizes supported GoldenEye engine mods and selects GLideN64's existing `GOLDENEYE` profile, restoring split-screen rendering with framebuffer emulation enabled. This uses the `GOLDENEYE` graphics settings and texture-pack name. No ROM header editing or GLideN64 replacement is required.
 
@@ -16,7 +16,6 @@ The updated emulator also recognizes supported GoldenEye engine mods and selects
 - Adds Map Maker free-camera mouse look and pointer selection in the Basic/Advanced chooser and editor menu.
 - Adds mouse navigation to GoldenEye 007 Plus's Map Maker editing pause menus, plus multiplayer and confirmation menus that use directional selection.
 - Adds configurable D-pad and L/R shoulder bindings. Existing settings migrate without resetting your controls or FOV.
-- Makes R usable for Plus's native interact/reload action during gameplay; E retains its native action.
 - Improves Perfect Dark FOV/settings discovery.
 - Clears held clicks across adapted menu transitions and pending mouse navigation when capture is lost.
 
@@ -77,8 +76,8 @@ The download has been updated in place; the version remains v0.3.2.
 
 **SHA-256**
 
-- ZIP: `6767e25de0de2f910647a3f4aca3e7e3d4e526602dca920e69079faad0ecc963`
-- `Mouse_Injector.dll`: `9d1c3df81c70601ff9bb7e7dd97c8cfa641ef3104f844d2c4d6e727468c798fd`
+- ZIP: `34d013a142ebd35925f5c57911d7c0b762625643ec853740aac4c980144e1531`
+- `Mouse_Injector.dll`: `33a3a9d2738fd7510dee31f5c3f4fa72bc6e1a9a49710aaf98570a8f48301183`
 
-[Source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility) · [Updated build source](https://github.com/Madcadden/mouse-injector/tree/fecf88b0059531c42c73965514f9f7907a17d0a8)
+[Source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility) · [Updated build source](https://github.com/Madcadden/mouse-injector/tree/01d017583e35d9b865dc2ac1c4480a363479fa68)
 
