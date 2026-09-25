@@ -8,7 +8,7 @@ Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.
 
 Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus's Native Test Mode. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
 
-The Map Maker texture-scrolling fix and Native Test Mode exit fix are included in the updated **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**. Install its updated `1964.exe` and cold-boot the ROM; the Mouse Injector v0.3.2 DLL is unchanged.
+The Map Maker texture-scrolling and Native Test Mode exit fixes in **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** now recognize GoldenEye 007 Plus by its ROM header and follow compatible relocated code, including the newer Plus release. Install its updated `1964.exe` and cold-boot the ROM; the Mouse Injector v0.3.2 DLL is unchanged.
 
 The updated emulator also recognizes supported GoldenEye engine mods and selects GLideN64's existing `GOLDENEYE` profile, restoring split-screen rendering with framebuffer emulation enabled. This uses the `GOLDENEYE` graphics settings and texture-pack name. No ROM header editing or GLideN64 replacement is required.
 
