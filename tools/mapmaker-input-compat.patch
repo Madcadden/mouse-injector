@@ -1,0 +1,179 @@
+--- a/games/goldeneye.c
++++ b/games/goldeneye.c
+@@ -33,6 +33,8 @@
+ 	unsigned int page, yaw, pitch, menu, freemode, preview;
+ 	unsigned int nextpage, nextpagealt, pitchmin, pitchmax;
+ 	unsigned int menu_selection, menu_tool, chooser_page, chooser_selection;
++	unsigned int menu_rows, menu_top, menu_stride, menu_music_x;
++	unsigned int preview_yaw, preview_pitch, preview_pitchmin, preview_pitchmax;
+ } GE_MAPMAKER_PROFILE;
+ 
+ typedef struct GE_ADDRESS_PROFILE
+@@ -439,6 +441,8 @@
+ 	return GE_MapMakerDataAddress(address) ? address : 0;
+ }
+ 
++#include "goldeneye.mapmaker16.h"
++
+ static void GE_ResolveMapMakerMenus(GE_ADDRESS_PROFILE *profile, const unsigned int input,
+ 	const unsigned int mode, const unsigned int select, const unsigned int change, const unsigned int codebase)
+ {
+@@ -541,7 +545,8 @@
+ 		&& GE_ROMPatternMatches(input + 0xAC, navigationpattern, navigationmask, 25)
+ 		&& drawing >= 0xA58 && drawing <= GE_ROM_SCAN_LIMIT - 0x498
+ 		&& GE_ROMPatternMatches(drawing + 0x47C, renderendpattern, renderendmask, 7)
+-		&& EMU_ReadROM(drawing - 0xA58) == 0x24130001U)
++		&& EMU_ReadROM(drawing - 0xA58) == 0x24130001U
++		&& EMU_ReadROM(drawing + 0x2D4) == 0x240500BEU)
+ 	{
+ 		row = GE_MakeAddress(EMU_ReadROM(input + 0xB4), EMU_ReadROM(input + 0xB8));
+ 		secondrow = GE_MakeAddress(EMU_ReadROM(input + 0xD8), EMU_ReadROM(input + 0xE0));
+@@ -556,6 +561,10 @@
+ 		{
+ 			editor->menu_selection = row;
+ 			editor->menu_tool = tool;
++			editor->menu_rows = 14;
++			editor->menu_top = 51;
++			editor->menu_stride = 19;
++			editor->menu_music_x = 190;
+ 		}
+ 	}
+ 	/* The two-row Basic/Advanced chooser has its own selector, with no
+@@ -581,20 +590,30 @@
+ {
+ 	GE_MAPMAKER_PROFILE candidate = {0};
+ 	const GE_MAPMAKER_PROFILE empty = {0};
+-	unsigned int input, mode, look, select, change, codebase;
++	unsigned int input, mode, look, select, change, codebase, revisedinput, revisedmode;
++	int revised;
+ 	profile->mapmaker = empty;
+ 	if(profile->maxpage < 28) return;
+ 	input = GE_FindUniqueROMPattern(gemapmakerinputpattern, gemapmakerinputmask, 30);
+ 	mode = GE_FindUniqueROMPattern(gemapmakermodepattern, gemapmakermodemask, 24);
++	revisedinput = GE_FindUniqueROMPattern(gemapmaker16inputpattern, gemapmaker16inputmask, 32);
++	revisedmode = GE_FindUniqueROMPattern(gemapmaker16modepattern, gemapmaker16modemask, 24);
++	/* Mixed or ambiguous layout evidence must not select an arbitrary copy. */
++	if((input || mode) && (revisedinput || revisedmode)) return;
++	revised = revisedinput && revisedmode;
++	if(revised) { input = revisedinput; mode = revisedmode; }
+ 	look = GE_FindUniqueROMPattern(gemapmakerlookpattern, gemapmakerlookmask, 56);
+ 	select = GE_FindUniqueROMPattern(gemapmakerselectpattern, gemapmakerselectmask, 19);
+ 	change = GE_FindUniqueROMPattern(gemapmakerchangepattern, gemapmakerchangemask, 15);
+-	if(!input || !mode || !look || !select || !change || mode != input + 0xC5C) return;
++	if(!input || !mode || !look || !select || !change || mode != input + (revised ? 0x11C4U : 0xC5CU)) return;
+ 	/* The selection calls the same frontend transition routine whose two
+ 	 * destinations are next to the already-resolved current-menu global. */
+ 	codebase = GE_MapMakerCallTarget(EMU_ReadROM(select + 0x30)) - change;
+ 	if((codebase & 0xFF800003U) != 0x80000000U
+-		|| GE_MapMakerCallTarget(EMU_ReadROM(mode + 0x50)) != codebase + look)
++		|| GE_MapMakerCallTarget(EMU_ReadROM(mode + 0x50)) != codebase + look
++		|| select > GE_ROM_SCAN_LIMIT - 0x39C
++		|| (EMU_ReadROM(select + 0x398) & 0xFC000000U) != 0x0C000000U
++		|| GE_MapMakerCallTarget(EMU_ReadROM(select + 0x398)) != codebase + input)
+ 		return;
+ 	candidate.page = EMU_ReadROM(select + 0x2C) & 0xFFFFU;
+ 	candidate.nextpage = GE_MakeAddress(EMU_ReadROM(change + 0x24), EMU_ReadROM(change + 0x2C));
+@@ -602,8 +621,8 @@
+ 	if(candidate.page < 28 || candidate.page > profile->maxpage
+ 		|| candidate.nextpage != profile->menupage + 4 || candidate.nextpagealt != profile->menupage + 8)
+ 		return;
+-	candidate.preview = GE_MakeAddress(EMU_ReadROM(input + 0x3C), EMU_ReadROM(input + 0x40));
+-	candidate.menu = GE_MakeAddress(EMU_ReadROM(input + 0x50), EMU_ReadROM(input + 0x64));
++	candidate.preview = GE_MakeAddress(EMU_ReadROM(input + (revised ? 0x40 : 0x3C)), EMU_ReadROM(input + (revised ? 0x44 : 0x40)));
++	candidate.menu = GE_MakeAddress(EMU_ReadROM(input + (revised ? 0x48 : 0x50)), EMU_ReadROM(input + (revised ? 0x54 : 0x64)));
+ 	candidate.freemode = GE_MakeAddress(EMU_ReadROM(mode), EMU_ReadROM(mode + 4));
+ 	candidate.yaw = GE_MakeAddress(EMU_ReadROM(look + 0x50), EMU_ReadROM(look + 0x58));
+ 	candidate.pitch = GE_MakeAddress(EMU_ReadROM(look + 0x68), EMU_ReadROM(look + 0x70));
+@@ -618,6 +637,8 @@
+ 		return;
+ 	profile->mapmaker = candidate;
+ 	GE_ResolveMapMakerMenus(profile, input, mode, select, change, codebase);
++	if(revised) GE_ResolveMapMaker16Menu(profile, input, mode, codebase);
++	GE_ResolveMapMakerPreview(profile, input, look, codebase, revised);
+ }
+ 
+ static int GE_MapMakerPage(const GE_ADDRESS_PROFILE *profile, const int page)
+@@ -630,18 +651,25 @@
+ 	const GE_MAPMAKER_PROFILE *editor = &profile->mapmaker;
+ 	const float mousex = DEVICE[PLAYER1].XPOS, mousey = DEVICE[PLAYER1].YPOS;
+ 	float yaw, pitch, minimum, maximum, dx, dy;
+-	if(!GE_MapMakerPage(profile, EMU_ReadInt(profile->menupage))
++	unsigned int yawaddress, pitchaddress, minaddress, maxaddress;
++	const int preview = editor->preview ? EMU_ReadInt(editor->preview) : -1;
++	if(!mousetoggle || !GE_MapMakerPage(profile, EMU_ReadInt(profile->menupage))
+ 		|| EMU_ReadInt(editor->nextpage) != -1 || EMU_ReadInt(editor->nextpagealt) != -1
+-		|| EMU_ReadInt(editor->menu) != 0 || EMU_ReadInt(editor->preview) != 0
+-		|| EMU_ReadInt(editor->freemode) != 1
++		|| EMU_ReadInt(editor->menu) != 0 || (preview != 0 && preview != 1)
++		|| (preview == 0 && EMU_ReadInt(editor->freemode) != 1)
+ 		|| DEVICE[PLAYER1].BUTTONPRIM[START] || DEVICE[PLAYER1].BUTTONSEC[START]
+ 		|| (!mousex && !mousey) || !isfinite(mousex) || !isfinite(mousey)
+ 		|| !isfinite(sensitivity) || sensitivity <= 0)
+ 		return;
+-	yaw = EMU_ReadFloat(editor->yaw);
+-	pitch = EMU_ReadFloat(editor->pitch);
+-	minimum = EMU_ReadFloat(editor->pitchmin);
+-	maximum = EMU_ReadFloat(editor->pitchmax);
++	yawaddress = preview ? editor->preview_yaw : editor->yaw;
++	pitchaddress = preview ? editor->preview_pitch : editor->pitch;
++	minaddress = preview ? editor->preview_pitchmin : editor->pitchmin;
++	maxaddress = preview ? editor->preview_pitchmax : editor->pitchmax;
++	if(!yawaddress || !pitchaddress || !minaddress || !maxaddress) return;
++	yaw = EMU_ReadFloat(yawaddress);
++	pitch = EMU_ReadFloat(pitchaddress);
++	minimum = EMU_ReadFloat(minaddress);
++	maximum = EMU_ReadFloat(maxaddress);
+ 	/* The native camera uses radians and clamps pitch to +/-pi/2. Verify
+ 	 * the live constants too, so uninitialized or changed layouts fail shut. */
+ 	if(!isfinite(yaw) || !isfinite(pitch) || !isfinite(minimum) || !isfinite(maximum)
+@@ -657,12 +685,12 @@
+ 	{
+ 		yaw = fmodf(yaw - dx, 2.0f * PI);
+ 		if(yaw < 0) yaw += 2.0f * PI;
+-		EMU_WriteFloat(editor->yaw, yaw);
++		EMU_WriteFloat(yawaddress, yaw);
+ 	}
+ 	if(mousey)
+ 	{
+ 		pitch += PROFILE[PLAYER1].SETTINGS[INVERTPITCH] ? dy : -dy;
+-		EMU_WriteFloat(editor->pitch, ClampFloat(pitch, minimum, maximum));
++		EMU_WriteFloat(pitchaddress, ClampFloat(pitch, minimum, maximum));
+ 	}
+ }
+ 
+--- a/games/goldeneye.mapmenu.h
++++ b/games/goldeneye.mapmenu.h
+@@ -46,7 +46,9 @@
+ 		selector = editor->menu_selection;
+ 		selected = EMU_ReadInt(selector);
+ 		tool = EMU_ReadInt(editor->menu_tool);
+-		if(selected < 0 || selected >= 14 || tool < 0 || tool >= 5) return 0;
++		if((editor->menu_rows != 14 && editor->menu_rows != 16)
++			|| !editor->menu_stride || selected < 0 || selected >= (int)editor->menu_rows
++			|| tool < 0 || tool >= 5) return 0;
+ 		ge_menu_mouse_context = 1;
+ 		right = tool == 1 ? 310 : 354;
+ 	}
+@@ -76,12 +78,17 @@
+ 	}
+ 	if(ge_menu_mouse_context == 1)
+ 	{
+-		if(x >= 86 && x <= right && y >= 51 && y < 317)
+-			hover = (int)((y - 51) / 19);
+-		/* Grid has no A/Z action. Material/music values have native +/-
+-		 * input, whereas clicking their labels keeps Z's original action. */
+-		if(hover == 10 || ((hover == 5 || hover == 8) && x >= 224))
++		const float valuex = editor->menu_music_x;
++		if(x >= 86 && x <= right && y >= editor->menu_top
++			&& y < editor->menu_top + editor->menu_rows * editor->menu_stride)
++			hover = (int)((y - editor->menu_top) / editor->menu_stride);
++		/* Material and Grid have no native A/Z action: a label click advances,
++		 * while either half of the value decrements/increments. Music's label
++		 * retains its native A/Z action; its value position is layout-specific. */
++		if(hover == 5 || hover == 10)
+ 			ge_menu_mouse_adjust = x >= 224 && x < 260 ? -1 : 1;
++		else if(hover == 8 && x >= valuex)
++			ge_menu_mouse_adjust = x < valuex + 36 ? -1 : 1;
+ 	}
+ 	else if(x >= 70 && x <= 400)
+ 	{
