@@ -1,0 +1,269 @@
+--- a/device.c
++++ b/device.c
+@@ -90,10 +90,12 @@
+ // Purpose: Polls ManyMouse for input and injects into game
+ // Changes Globals: a lot
+ //==========================================================================
++#include "freefly_trace.h"
+ DWORD WINAPI DEV_InjectThread(LPVOID parameter)
+ {
+ 	(void)parameter;
+ 	ManyMouseEvent event; // hold current input event (movement, buttons, ect)
++	FFTraceStart();
+ 	memset(&DEVICE, 0, sizeof(DEVICE)); // clear device struct
+ 	int checkwindowtick = 0; // check if emulator window is in focus
+ 	int togglebuffer = 0; // buffer cool down for mouse toggle
+@@ -129,6 +131,7 @@
+ 		}
+ 		while(ManyMouse_PollEvent(&event))
+ 		{
++			FFTraceRaw(&event);
+ 			for(int player = PLAYER1; player < ALLPLAYERS; player++)
+ 			{
+ 				if(PROFILE[player].SETTINGS[CONFIG] == DISABLED) // don't check for disabled players
+@@ -217,8 +220,11 @@
+ 		}
+ 		else
+ 			checkwindowtick++;
+-		if(windowactive && GAME_Status() && !configdialogopen) // if emulator is focused, game is valid and config dialog isn't open
++		const int gamevalid = windowactive ? GAME_Status() : 0;
++		const int injected = windowactive && gamevalid && !configdialogopen;
++		if(injected)
+ 			GAME_Inject(); // send input to game driver
++		FFTraceFrame(gamevalid, injected);
+ 		Sleep(TICKRATE);
+ 	}
+ 	GAME_Quit(); // reset game driver's global variables
+--- a/maindll.c
++++ b/maindll.c
+@@ -412,6 +412,7 @@
+ //==========================================================================
+ static void GUI_Init(const HWND hW)
+ {
++	SetWindowTextA(hW, "Mouse Injector - FreeFly-F2");
+ 	CheckRadioButton(hW, IDC_PLAYER1, IDC_PLAYER4, IDC_PLAYER1 + currentplayer); // check current player's radio button
+ 	for(int connectedindex = 0; connectedindex < DEV_Init(); connectedindex++) // add devices to combobox
+ 	{
+@@ -976,7 +977,7 @@
+ //==========================================================================
+ DLLEXPORT void CALL DllAbout(HWND hParent)
+ {
+-	MessageBoxA(hParent, "Mouse Injector for GE/PD "__MOUSE_INJECTOR_VERSION__" (Build: "__DATE__")\nCopyright (C) "__CURRENTYEAR__", Carnivorous", "Mouse Injector - About", MB_ICONINFORMATION | MB_OK);
++	MessageBoxA(hParent, "Mouse Injector for GE/PD "__MOUSE_INJECTOR_VERSION__" FreeFly-F2 (Build: "__DATE__")\nCopyright (C) "__CURRENTYEAR__", Carnivorous", "Mouse Injector - About", MB_ICONINFORMATION | MB_OK);
+ }
+ //==========================================================================
+ // Purpose: Optional function that is provided to allow the user to configure the DLL
+@@ -1015,7 +1016,7 @@
+ 	#if PD_DECOMP
+ 	sprintf(PluginInfo->Name, "Mouse Injector for Perfect Dark Decomp "__MOUSE_INJECTOR_VERSION__"");
+ 	#else
+-	sprintf(PluginInfo->Name, "Mouse Injector for GE/PD "__MOUSE_INJECTOR_VERSION__"");
++	sprintf(PluginInfo->Name, "Mouse Injector for GE/PD "__MOUSE_INJECTOR_VERSION__" FreeFly-F2");
+ 	#endif
+ #if SPEEDRUN_BUILD
+ 	sprintf(PluginInfo->Name, "%s (Speedrun Build)", PluginInfo->Name);
+--- a/games/goldeneye.c
++++ b/games/goldeneye.c
+@@ -646,6 +646,8 @@
+ 	return profile->mapmaker.page && page == (int)profile->mapmaker.page;
+ }
+ 
++#include "goldeneye.freeflytrace.h"
++
+ static void GE_MapMakerLook(const GE_ADDRESS_PROFILE *profile, const float sensitivity)
+ {
+ 	const GE_MAPMAKER_PROFILE *editor = &profile->mapmaker;
+@@ -653,6 +655,9 @@
+ 	float yaw, pitch, minimum, maximum, dx, dy;
+ 	unsigned int yawaddress, pitchaddress, minaddress, maxaddress;
+ 	const int preview = editor->preview ? EMU_ReadInt(editor->preview) : -1;
++	ge_ff_visits++;
++	/* Keep the last moving-input reason, not each intervening empty poll. */
++	if(mousex || mousey) ge_ff_result = "rejected by capture/editor/transition/start/sensitivity gate";
+ 	if(!mousetoggle || !GE_MapMakerPage(profile, EMU_ReadInt(profile->menupage))
+ 		|| EMU_ReadInt(editor->nextpage) != -1 || EMU_ReadInt(editor->nextpagealt) != -1
+ 		|| EMU_ReadInt(editor->menu) != 0 || (preview != 0 && preview != 1)
+@@ -665,7 +670,11 @@
+ 	pitchaddress = preview ? editor->preview_pitch : editor->pitch;
+ 	minaddress = preview ? editor->preview_pitchmin : editor->pitchmin;
+ 	maxaddress = preview ? editor->preview_pitchmax : editor->pitchmax;
+-	if(!yawaddress || !pitchaddress || !minaddress || !maxaddress) return;
++	if(!yawaddress || !pitchaddress || !minaddress || !maxaddress) {
++		ge_ff_result = "camera addresses not resolved";
++		return;
++	}
++	ge_ff_result = "rejected by camera pitch/constant validation";
+ 	yaw = EMU_ReadFloat(yawaddress);
+ 	pitch = EMU_ReadFloat(pitchaddress);
+ 	minimum = EMU_ReadFloat(minaddress);
+@@ -680,17 +689,24 @@
+ 	 * Match gameplay sensitivity in degrees, then convert once to radians. */
+ 	dx = mousex / 10.0f * sensitivity * (PI / 180.0f);
+ 	dy = mousey / 10.0f * sensitivity * (PI / 180.0f);
+-	if(!isfinite(dx) || !isfinite(dy)) return;
++	if(!isfinite(dx) || !isfinite(dy)) { ge_ff_result = "non-finite calculated movement"; return; }
++	ge_ff_result = "camera write performed";
+ 	if(mousex)
+ 	{
++		ge_ff_before_yaw = yaw;
+ 		yaw = fmodf(yaw - dx, 2.0f * PI);
+ 		if(yaw < 0) yaw += 2.0f * PI;
+ 		EMU_WriteFloat(yawaddress, yaw);
++		ge_ff_yaw_writes++;
++		ge_ff_after_yaw = EMU_ReadFloat(yawaddress);
+ 	}
+ 	if(mousey)
+ 	{
++		ge_ff_before_pitch = pitch;
+ 		pitch += PROFILE[PLAYER1].SETTINGS[INVERTPITCH] ? dy : -dy;
+ 		EMU_WriteFloat(pitchaddress, ClampFloat(pitch, minimum, maximum));
++		ge_ff_pitch_writes++;
++		ge_ff_after_pitch = EMU_ReadFloat(pitchaddress);
+ 	}
+ }
+ 
+@@ -1461,3 +1477,5 @@
+ 		GE_ResetCrouchToggle(player);
+ 	}
+ }
++
++#include "goldeneye.freeflyreport.h"
+--- /dev/null
++++ b/freefly_trace.h
+@@ -0,0 +1,94 @@
++/* Temporary input-path diagnostics for the FreeFly-F2 candidate.
++ * GPL-2.0-or-later. Records only game input routing and camera diagnostics.
++ * Does not capture key names, key text, other windows or RAM/ROM contents.
++ * Included in device.c; all state is owned by the input thread.
++ */
++#ifndef GEPD_FREEFLY_TRACE_H
++#define GEPD_FREEFLY_TRACE_H
++#include <stdio.h>
++#include <string.h>
++extern void GE_DebugInput(FILE *out);
++static DWORD ff_trace_last_ms;
++static unsigned long ff_trace_raw_events, ff_trace_polls, ff_trace_injected;
++static unsigned long ff_trace_accepted[4];
++static unsigned int ff_trace_last_device;
++static int ff_trace_last_dx[4], ff_trace_last_dy[4];
++static char ff_trace_module[MAX_PATH];
++static char ff_trace_path[MAX_PATH];
++
++static void FFTraceStart(void)
++{
++    HMODULE module = NULL;
++    DWORD length;
++    char *end;
++    ff_trace_last_ms = GetTickCount() - 1000U;
++    ff_trace_raw_events = ff_trace_polls = ff_trace_injected = 0;
++    memset(ff_trace_accepted, 0, sizeof(ff_trace_accepted));
++    memset(ff_trace_last_dx, 0, sizeof(ff_trace_last_dx));
++    memset(ff_trace_last_dy, 0, sizeof(ff_trace_last_dy));
++    ff_trace_module[0] = ff_trace_path[0] = 0;
++    if(!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
++        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
++        (LPCSTR)&ff_trace_last_ms, &module)) return;
++    length = GetModuleFileNameA(module, ff_trace_module, MAX_PATH);
++    if(!length || length >= MAX_PATH) { ff_trace_module[0] = 0; return; }
++    strcpy(ff_trace_path, ff_trace_module);
++    end = strrchr(ff_trace_path, '\\');
++    if(!end || (size_t)(end + 1 - ff_trace_path) + sizeof("GEPD-FreeFly.log") > MAX_PATH) {
++        ff_trace_path[0] = 0; return;
++    }
++    strcpy(end + 1, "GEPD-FreeFly.log");
++}
++
++static void FFTraceRaw(const ManyMouseEvent *event)
++{
++    if(event->type == MANYMOUSE_EVENT_RELMOTION) {
++        ++ff_trace_raw_events;
++        ff_trace_last_device = event->device;
++    }
++}
++
++static void FFTraceFrame(int valid, int injected)
++{
++    DWORD now = GetTickCount();
++    FILE *out;
++    int player;
++    ++ff_trace_polls;
++    if(injected) ++ff_trace_injected;
++    for(player = 0; player < 4; ++player) {
++        if(DEVICE[player].XPOS || DEVICE[player].YPOS) {
++            ++ff_trace_accepted[player];
++            ff_trace_last_dx[player] = DEVICE[player].XPOS;
++            ff_trace_last_dy[player] = DEVICE[player].YPOS;
++        }
++    }
++    if((DWORD)(now - ff_trace_last_ms) < 1000U) return;
++    ff_trace_last_ms = now;
++    if(!ff_trace_path[0]) return;
++    out = fopen(ff_trace_path, "w");
++    if(!out) {
++        DWORD length = GetTempPathA(MAX_PATH, ff_trace_path);
++        if(!length || length + sizeof("GEPD-FreeFly.log") > MAX_PATH) {
++            ff_trace_path[0] = 0; return;
++        }
++        strcpy(ff_trace_path + length, "GEPD-FreeFly.log");
++        out = fopen(ff_trace_path, "w");
++        if(!out) return;
++    }
++    fprintf(out, "1964GEPD FreeFly-F2 input diagnostic\nLoaded DLL: %s\n"
++        "Capture=%d WindowActive=%d ConfigDialog=%d GameValid=%d\n"
++        "CaptureToggleVirtualKey=0x%02X SingleActiveProfile=%d\n"
++        "Polls=%lu InjectedPolls=%lu RawMotionEvents=%lu LastMotionDevice=%u\n",
++        ff_trace_module, mousetoggle, windowactive, configdialogopen, valid,
++        mousetogglekey, !!(ONLY1PLAYERACTIVE), ff_trace_polls, ff_trace_injected,
++        ff_trace_raw_events, ff_trace_last_device);
++    for(player = 0; player < 4; ++player)
++        fprintf(out, "P%d: Config=%d MouseDevice=%d KeyboardDevice=%d Sensitivity=%d "
++            "AcceptedMotionPolls=%lu LastMouseDelta=%d,%d\n", player + 1,
++            PROFILE[player].SETTINGS[CONFIG], PROFILE[player].SETTINGS[MOUSE],
++            PROFILE[player].SETTINGS[KEYBOARD], PROFILE[player].SETTINGS[SENSITIVITY],
++            ff_trace_accepted[player], ff_trace_last_dx[player], ff_trace_last_dy[player]);
++    GE_DebugInput(out);
++    fclose(out);
++}
++#endif
+--- /dev/null
++++ b/games/goldeneye.freeflytrace.h
+@@ -0,0 +1,5 @@
++/* Included after GE_MapMakerPage; FreeFly-F2 diagnostic only. GPL-2.0-or-later. */
++#include <stdio.h>
++static unsigned long ge_ff_visits, ge_ff_yaw_writes, ge_ff_pitch_writes;
++static float ge_ff_before_yaw, ge_ff_after_yaw, ge_ff_before_pitch, ge_ff_after_pitch;
++static const char *ge_ff_result = "Map Maker look has not been called";
+--- /dev/null
++++ b/games/goldeneye.freeflyreport.h
+@@ -0,0 +1,31 @@
++/* Called by the input thread. No persistent settings or game-memory writes. */
++void GE_DebugInput(FILE *out)
++{
++    const GE_ADDRESS_PROFILE *profile;
++    const GE_MAPMAKER_PROFILE *editor;
++    if(!romptr || !rdramptr) {
++        fprintf(out, "ROM/RAM hook not ready: ROM=%d RAM=%d\n", !!romptr, !!rdramptr);
++        return;
++    }
++    profile = GE_GetAddressProfile();
++    editor = &profile->mapmaker;
++    fprintf(out, "GEProfile=%d MaxPage=%u MapMakerPage=%u MenuRows=%u\n",
++        !!profile->bonddata, profile->maxpage, editor->page, editor->menu_rows);
++    if(profile->bonddata)
++        fprintf(out, "CurrentPage=%d Camera=%d Pause=%d Exit=%d MenuCursor=%.6g,%.6g\n",
++            EMU_ReadInt(profile->menupage), EMU_ReadInt(profile->camera),
++            EMU_ReadInt(profile->pause), EMU_ReadInt(profile->exit),
++            EMU_ReadFloat(profile->menux), EMU_ReadFloat(profile->menuy));
++    if(editor->page) {
++        fprintf(out, "FreeFly=%d EditorMenu=%d Preview=%d NextPage=%d AlternateNextPage=%d\n",
++            EMU_ReadInt(editor->freemode), EMU_ReadInt(editor->menu),
++            EMU_ReadInt(editor->preview), EMU_ReadInt(editor->nextpage), EMU_ReadInt(editor->nextpagealt));
++        fprintf(out, "FreeFlyAngles=%.9g,%.9g PitchLimits=%.9g,%.9g\n",
++            EMU_ReadFloat(editor->yaw), EMU_ReadFloat(editor->pitch),
++            EMU_ReadFloat(editor->pitchmin), EMU_ReadFloat(editor->pitchmax));
++    }
++    fprintf(out, "LookVisits=%lu YawWrites=%lu PitchWrites=%lu\nLastLookResult=%s\n"
++        "LastYawChange=%.9g -> %.9g LastPitchChange=%.9g -> %.9g\n",
++        ge_ff_visits, ge_ff_yaw_writes, ge_ff_pitch_writes, ge_ff_result,
++        ge_ff_before_yaw, ge_ff_after_yaw, ge_ff_before_pitch, ge_ff_after_pitch);
++}
