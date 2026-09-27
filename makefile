@@ -43,11 +43,22 @@ ifdef USE_DISCORD_PRESENCE
 endif
 LFLAGS = -shared $(OBJS) -o $(DLLNAME) $(LIBS) -m32 -s -Wl,--add-stdcall-alias
 
-#Main recipes
-mouseinjector: $(OBJS)
+# The released F3 sources are maintained as a verified patch series.
+# Prepare before a separate make pass so generated header dependencies exist.
+PYTHON ?= python
+.PHONY: mouseinjector prepare-f3 _mouseinjector all clean
+mouseinjector: prepare-f3
+	$(MAKE) _mouseinjector
+
+prepare-f3:
+	$(PYTHON) tools/prepare_freefly_f3.py
+	mkdir -p $(OBJDIR)
+
+_mouseinjector: $(OBJS)
 	$(CC) $(LFLAGS)
 
-all: clean mouseinjector
+all: clean
+	$(MAKE) mouseinjector
 
 # use different UI files and dll name for perfect dark decomp
 RCFILE=$(UIDIR)ui.rc
@@ -61,7 +72,7 @@ endif
 $(OBJDIR)maindll.o: $(SRCDIR)maindll.c $(SRCDIR)global.h $(SRCDIR)maindll.h $(SRCDIR)device.h $(SRCDIR)discord.h $(RCFILE) $(RESOURCEFILE) $(SRCDIR)vkey.h
 	$(CC) -c $(SRCDIR)maindll.c -o $(OBJDIR)maindll.o $(CFLAGS) $(WARNINGS) -Wno-unused-parameter
 
-$(OBJDIR)device.o: $(SRCDIR)device.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(MANYMOUSEDIR)manymouse.h $(GAMESDIR)game.h
+$(OBJDIR)device.o: $(SRCDIR)freefly_trace.h $(SRCDIR)device.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(MANYMOUSEDIR)manymouse.h $(GAMESDIR)game.h
 	$(CC) -c $(SRCDIR)device.c -o $(OBJDIR)device.o $(CFLAGS) $(WARNINGS)
 
 $(OBJDIR)discord.o: $(SRCDIR)discord.c $(SRCDIR)global.h $(SRCDIR)discord.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
@@ -76,7 +87,7 @@ $(OBJDIR)windows_wminput.o: $(MANYMOUSEDIR)windows_wminput.c $(MANYMOUSEDIR)many
 $(OBJDIR)game.o: $(GAMESDIR)game.c $(GAMESDIR)game.h
 	$(CC) -c $(GAMESDIR)game.c -o $(OBJDIR)game.o $(CFLAGS) $(WARNINGS)
 
-$(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.c $(GAMESDIR)goldeneye.mapmenu.h $(GAMESDIR)goldeneye.menunav.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
+$(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.mapmaker16.h $(GAMESDIR)goldeneye.freeflytrace.h $(GAMESDIR)goldeneye.freeflyreport.h $(GAMESDIR)goldeneye.reload.h $(GAMESDIR)goldeneye.c $(GAMESDIR)goldeneye.mapmenu.h $(GAMESDIR)goldeneye.menunav.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)goldeneye.c -o $(OBJDIR)goldeneye.o $(CFLAGS) $(WARNINGS)
 
 $(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(GAMESDIR)perfectdark.h $(GAMESDIR)perfectdark.compat.h $(GAMESDIR)perfectdark.signatures.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
