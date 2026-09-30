@@ -29,6 +29,16 @@ static int GE_MenuNativeContext(const int player)
 		return 100 + page;
 	if(player == PLAYER1 && page == 20)
 		return 120;
+	/* GoldenEye Plus deliberately appends new mod frontend pages after its
+	 * Map Maker pages so existing menu IDs stay stable. These appended pages
+	 * use native digital navigation instead of the ordinary frontend cursor.
+	 * Use the ROM-resolved Map Maker page and menu-table upper bound rather
+	 * than hardcoded Level Modifiers IDs, so later appended Plus menus inherit
+	 * mouse gesture navigation automatically. Map Maker itself remains owned
+	 * by its dedicated cursor/free-fly handlers above this adapter. */
+	if(player == PLAYER1 && profile->mapmaker.page
+		&& page > (int)profile->mapmaker.page && page <= (int)profile->maxpage)
+		return 200 + page;
 	if(player == PLAYER1 && page == 5 && profile->erase_selection)
 	{
 		const int folder = EMU_ReadInt(profile->erase_selection);
