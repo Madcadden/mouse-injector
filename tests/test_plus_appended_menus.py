@@ -9,6 +9,7 @@ if plus is None or not plus.exists():
     raise SystemExit("usage: test_plus_appended_menus.py <GoldenEye-007-Plus source>")
 
 nav = (root / "games/goldeneye.menunav.h").read_text(errors="replace")
+injector = (root / "games/goldeneye.c").read_text(errors="replace")
 front = (plus / "src/game/front.c").read_text(errors="replace")
 bc = (plus / "src/bondconstants.h").read_text(errors="replace")
 
@@ -31,10 +32,29 @@ if all(x in order for x in ("MENU_MAP_MAKER_BASIC","MENU_LEVEL_MODIFIERS",
        order[i+1:i+4] == ["MENU_LEVEL_MODIFIERS","MENU_LEVEL_MODIFIERS_LEVELS",
                          "MENU_LEVEL_MODIFIERS_DETAIL"])
 
-ck("injector uses resolved appended-page range, not fixed Level Modifiers IDs",
-   "page > (int)profile->mapmaker.page && page <= (int)profile->maxpage" in nav
+ck("known Level Modifiers pages are cursor-owned, future appended pages keep fallback",
+   "profile->levelmod_category" in nav
+   and "page > (int)profile->mapmaker.page + 3 && page <= (int)profile->maxpage" in nav
    and "return 200 + page;" in nav
    and "page == 31" not in nav and "page == 32" not in nav and "page == 33" not in nav)
+
+ck("compiled Level Modifiers selector is structurally resolved",
+   "GE_ResolveLevelModifierProfile" in injector
+   and "0x30000808U" in injector and "0x30000404U" in injector
+   and "candidatelevel != candidate + 4U" in injector
+   and "candidatetop != candidate + 8U" in injector)
+ck("cursor uses the renderer's exact category rectangles",
+   "84.0f + row * 30.0f" in injector
+   and "x >= 70.0f && x <= 370.0f" in injector
+   and "y <= top + 20.0f" in injector)
+ck("cursor uses the renderer's exact level-list pitch",
+   "x >= 68.0f && x <= 360.0f" in injector
+   and "y >= 77.0f && y < 237.0f" in injector
+   and "(y - 77.0f) / 16.0f" in injector)
+ck("Level Modifiers selection is direct rather than synthetic D-pad stepping",
+   "EMU_WriteInt(profile->levelmod_category, target)" in injector
+   and "EMU_WriteInt(profile->levelmod_level, target)" in injector
+   and "GE_LevelModifierMenuMouse(GE_GetAddressProfile());" in injector)
 
 def fn(name):
     m = re.search(r"void\s+" + re.escape(name) + r"\s*\([^)]*\)\s*\{(.*?)\n\}", front, re.S)
