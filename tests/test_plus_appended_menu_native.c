@@ -31,24 +31,24 @@ static TEST_PROFILE PROFILE[ALLPLAYERS];
 static TEST_DEVICE DEVICE[ALLPLAYERS];
 static TEST_CONTROLLER CONTROLLER[ALLPLAYERS];
 static unsigned int playerbase[ALLPLAYERS];
-static GE_ADDRESS_PROFILE profile;
+static GE_ADDRESS_PROFILE test_profile;
 static int current_page;
 static int mousetoggle = 1;
 
 #define GE_deathflag 0
 #define GE_multipausemenu 0
-#define GE_matchended (profile.matchended)
+#define GE_matchended (test_profile.matchended)
 #define ONLY1PLAYERACTIVE 1
 
 static int ClampInt(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 static int EMU_ReadInt(unsigned int address)
 {
-    if(address == profile.menupage) return current_page;
-    if(address == profile.erase_selection) return -1;
-    if(address == profile.matchended) return 0;
+    if(address == test_profile.menupage) return current_page;
+    if(address == test_profile.erase_selection) return -1;
+    if(address == test_profile.matchended) return 0;
     return 0;
 }
-static const GE_ADDRESS_PROFILE *GE_GetAddressProfile(void) { return &profile; }
+static const GE_ADDRESS_PROFILE *GE_GetAddressProfile(void) { return &test_profile; }
 
 #include "../games/goldeneye.menunav.h"
 
@@ -61,14 +61,14 @@ static void clear_input(void)
 int main(void)
 {
     memset(PROFILE, 0, sizeof(PROFILE));
-    memset(&profile, 0, sizeof(profile));
+    memset(&test_profile, 0, sizeof(test_profile));
     PROFILE[0].SETTINGS[CONFIG] = 1;
     PROFILE[0].SETTINGS[MOUSE] = 0;
     PROFILE[0].SETTINGS[SENSITIVITY] = 40;
-    profile.menupage = 0x80000100U;
-    profile.matchended = 0x80000104U;
-    profile.mapmaker.page = 30;
-    profile.maxpage = 33;
+    test_profile.menupage = 0x80000100U;
+    test_profile.matchended = 0x80000104U;
+    test_profile.mapmaker.page = 30;
+    test_profile.maxpage = 33;
 
     current_page = 30;
     assert(GE_MenuNativeContext(0) == 0);
@@ -81,12 +81,12 @@ int main(void)
 
     /* Future Plus menus appended after Map Maker inherit navigation without
      * another page-number edit when the resolved table upper bound grows. */
-    profile.maxpage = 37;
+    test_profile.maxpage = 37;
     current_page = 37;
     assert(GE_MenuNativeContext(0) == 237);
     current_page = 38;
     assert(GE_MenuNativeContext(0) == 0);
-    profile.maxpage = 33;
+    test_profile.maxpage = 33;
 
     /* Vertical mouse gesture -> native Up. */
     GE_MenuNativeReset();
