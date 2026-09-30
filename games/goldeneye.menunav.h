@@ -29,6 +29,16 @@ static int GE_MenuNativeContext(const int player)
 		return 100 + page;
 	if(player == PLAYER1 && page == 20)
 		return 120;
+	/* Level Modifiers pages are cursor-owned when their selector globals were
+	 * structurally resolved. Do not generate hidden D-pad pulses there. */
+	if(player == PLAYER1 && profile->levelmod_category && profile->mapmaker.page
+		&& page > (int)profile->mapmaker.page && page <= (int)profile->mapmaker.page + 3)
+		return 0;
+	/* Future Plus pages appended after the known cursor-owned stack retain a
+	 * conservative native-gesture fallback up to the ROM-resolved menu limit. */
+	if(player == PLAYER1 && profile->mapmaker.page
+		&& page > (int)profile->mapmaker.page + 3 && page <= (int)profile->maxpage)
+		return 200 + page;
 	if(player == PLAYER1 && page == 5 && profile->erase_selection)
 	{
 		const int folder = EMU_ReadInt(profile->erase_selection);

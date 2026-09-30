@@ -52,6 +52,7 @@ mouseinjector: prepare-f3
 
 prepare-f3:
 	$(PYTHON) tools/prepare_freefly_f3.py
+	$(PYTHON) tools/apply_plus_levelmod_cursor.py
 	mkdir -p $(OBJDIR)
 
 _mouseinjector: $(OBJS)
