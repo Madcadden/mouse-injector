@@ -1,0 +1,82 @@
+name: Publish tested standalone injector in place
+on:
+  push:
+    branches: ['release/publish-tested-levelmod']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: automatic-mod-compatibility-v0.3.2
+      RELEASE_ID: "396010717"
+      DLL_SHA256: "4ff94a049c7d4d3e5c4bee54e408c7646ddde1a52fff408e06378aa65c2d7eb3"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Obtain the exact tested DLL from the matching emulator release
+        run: |
+          mkdir -p work/emu work/out work/standalone
+          curl -fL --retry 3             'https://github.com/Madcadden/1964GEPD/releases/download/automatic-mod-compatibility-v0.2.2/1964GEPD-Automatic-Mod-Compatibility-v0.2.2.zip'             -o work/emu/package.zip
+          unzip -q work/emu/package.zip -d work/emu/package
+          cp work/emu/package/plugin/Mouse_Injector.dll work/standalone/Mouse_Injector.dll
+          test "$(sha256sum work/standalone/Mouse_Injector.dll | awk '{print $1}')" = "$DLL_SHA256"
+
+      - name: Build standalone ZIP and checksums
+        run: |
+          (cd work/standalone && zip -q9 ../out/Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip Mouse_Injector.dll)
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,subprocess
+          def sha(p):
+              h=hashlib.sha256()
+              with open(p,'rb') as f:
+                  for b in iter(lambda:f.read(1024*1024),b''):
+                      h.update(b)
+              return h.hexdigest()
+          out=Path("work/out")
+          z=out/"Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip"
+          dll=Path("work/standalone/Mouse_Injector.dll")
+          zh,dh=sha(z),sha(dll)
+          assert dh=="4ff94a049c7d4d3e5c4bee54e408c7646ddde1a52fff408e06378aa65c2d7eb3"
+          (out/"SHA256SUMS.txt").write_text(f"{zh}  Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip\n{dh}  Mouse_Injector.dll\n")
+          rel=json.loads(subprocess.check_output(["gh","api","repos/Madcadden/mouse-injector/releases/396010717"]))
+          body=rel["body"]
+          oldzip="ede062b53f02608be0d70ed762babf2d17c09ea835be84d2355e3ebc18370b5a"
+          olddll="870509bb4553b16d679edbae1349948943476bee6ee2c8e5d712a945b4c584cd"
+          assert body.count(oldzip)==1 and body.count(olddll)==1
+          body=body.replace(oldzip,zh).replace(olddll,dh)
+          (out/"body.json").write_text(json.dumps({"body":body}))
+          (out/"hashes.json").write_text(json.dumps({"zip":zh,"dll":dh},indent=2)+"\n")
+          PY
+
+      - name: Replace release files and hashes only
+        run: |
+          gh release upload "$TAG" --repo Madcadden/mouse-injector --clobber             work/out/Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip             work/out/SHA256SUMS.txt
+          gh api --method PATCH "repos/Madcadden/mouse-injector/releases/$RELEASE_ID" --input work/out/body.json >/dev/null
+
+      - name: Verify published files
+        run: |
+          mkdir -p work/verify
+          gh release download "$TAG" --repo Madcadden/mouse-injector -D work/verify             -p 'Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip'             -p 'SHA256SUMS.txt'
+          python3 - <<'PY'
+          import hashlib,json,zipfile,subprocess
+          vals=json.load(open("work/out/hashes.json"))
+          p="work/verify/Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip"
+          assert hashlib.sha256(open(p,"rb").read()).hexdigest()==vals["zip"]
+          with zipfile.ZipFile(p) as z:
+              assert hashlib.sha256(z.read("Mouse_Injector.dll")).hexdigest()==vals["dll"]
+          rel=json.loads(subprocess.check_output(["gh","api","repos/Madcadden/mouse-injector/releases/396010717"]))
+          assert vals["zip"] in rel["body"] and vals["dll"] in rel["body"]
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: standalone-publication-${{ github.sha }}
+          path: work/out/hashes.json
+          retention-days: 14
