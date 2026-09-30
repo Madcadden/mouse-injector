@@ -183,11 +183,11 @@ if "levelmodmouse = GE_LevelModifierMenuMouse" not in s:
     s = s.replace(inject_anchor,
         "\tconst int levelmodmouse = GE_LevelModifierMenuMouse(GE_GetAddressProfile());\n" +
         inject_anchor +
-        "\t/* Mouse Fire is Z in frontend menus. Do not let a click in empty\\n"
-        "\t * space activate the previously highlighted Level Modifiers row.\\n"
-        "\t * Keyboard/controller Accept remains untouched. */\\n"
-        "\tif(levelmodmouse == 1 && (DEVICE[PLAYER1].BUTTONPRIM[FIRE] || DEVICE[PLAYER1].BUTTONSEC[FIRE]))\\n"
-        "\t\tCONTROLLER[PLAYER1].Z_TRIG = 0;\\n", 1)
+        "\t/* Mouse Fire is Z in frontend menus. Do not let a click in empty\n"
+        "\t * space activate the previously highlighted Level Modifiers row.\n"
+        "\t * Keyboard/controller Accept remains untouched. */\n"
+        "\tif(levelmodmouse == 1 && (DEVICE[PLAYER1].BUTTONPRIM[FIRE] || DEVICE[PLAYER1].BUTTONSEC[FIRE]))\n"
+        "\t\tCONTROLLER[PLAYER1].Z_TRIG = 0;\n", 1)
 
 P.write_text(s)
 print("Applied direct Plus Level Modifiers cursor resolver")
