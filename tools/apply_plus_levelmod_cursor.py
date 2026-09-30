@@ -143,7 +143,7 @@ static int GE_LevelModifierMenuMouse(const GE_ADDRESS_PROFILE *profile)
 		}
 		if(target >= 0 && EMU_ReadInt(profile->levelmod_category) != target)
 			EMU_WriteInt(profile->levelmod_category, target);
-		return 1;
+		return target >= 0 ? 2 : 1;
 	}
 	if(relative == 2)
 	{
@@ -159,11 +159,10 @@ static int GE_LevelModifierMenuMouse(const GE_ADDRESS_PROFILE *profile)
 			if(target >= 0 && EMU_ReadInt(profile->levelmod_level) != target)
 				EMU_WriteInt(profile->levelmod_level, target);
 		}
-		return 1;
+		return target >= 0 ? 2 : 1;
 	}
-	/* Detail has one fixed highlighted row; normal Z/A and menu Back mappings
-	 * already perform its toggle/back actions without any synthetic movement. */
-	return 1;
+	/* Detail has one fixed highlighted row. */
+	return x >= 70.0f && x <= 370.0f && y >= 91.0f && y <= 111.0f ? 2 : 1;
 }
 
 '''
@@ -178,11 +177,17 @@ if "GE_ResolveLevelModifierProfile(profile);" not in s:
     s = s.replace(call_anchor, call_anchor + "\tGE_ResolveLevelModifierProfile(profile);\n", 1)
 
 inject_anchor = "\tGE_Controller(); // set controller data\n"
-if "GE_LevelModifierMenuMouse(GE_GetAddressProfile());" not in s:
+if "levelmodmouse = GE_LevelModifierMenuMouse" not in s:
     if inject_anchor not in s:
         raise SystemExit("inject anchor not found")
     s = s.replace(inject_anchor,
-        "\tGE_LevelModifierMenuMouse(GE_GetAddressProfile());\n" + inject_anchor, 1)
+        "\tconst int levelmodmouse = GE_LevelModifierMenuMouse(GE_GetAddressProfile());\n" +
+        inject_anchor +
+        "\t/* Mouse Fire is Z in frontend menus. Do not let a click in empty\\n"
+        "\t * space activate the previously highlighted Level Modifiers row.\\n"
+        "\t * Keyboard/controller Accept remains untouched. */\\n"
+        "\tif(levelmodmouse == 1 && (DEVICE[PLAYER1].BUTTONPRIM[FIRE] || DEVICE[PLAYER1].BUTTONSEC[FIRE]))\\n"
+        "\t\tCONTROLLER[PLAYER1].Z_TRIG = 0;\\n", 1)
 
 P.write_text(s)
 print("Applied direct Plus Level Modifiers cursor resolver")
