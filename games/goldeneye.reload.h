@@ -4,7 +4,7 @@
  * flag, just as it is in the retail reload patch. */
 typedef struct GE_PLUS_RELOAD_PROFILE
 {
-	unsigned int address[23], original[23], replacement[23];
+	unsigned int address[48], original[48], replacement[48], count;
 } GE_PLUS_RELOAD_PROFILE;
 
 typedef struct GE_PLUS_RELOAD_LAYOUT
@@ -156,9 +156,13 @@ static int GE_ResolvePlusReload(GE_PLUS_RELOAD_PROFILE *result)
 	result->replacement[20] = 0;
 	result->replacement[21] = EMU_ReadROM(logic + 0x0C);
 	result->replacement[22] = 0;
+	result->count = 23;
 	for(unsigned int i = 0; i < 23; i++) result->original[i] = EMU_ReadROM(result->address[i]);
 	return 1;
 }
+
+static int GE_ResolvePlus24Reload(GE_PLUS_RELOAD_PROFILE *r);
+#include "goldeneye.reload24.h"
 
 static void GE_InjectPlusReloadHack(void)
 {
@@ -175,10 +179,10 @@ static void GE_InjectPlusReloadHack(void)
 		cachedrom = romptr;
 		crc1 = EMU_ReadROM(0x10);
 		crc2 = EMU_ReadROM(0x14);
-		valid = GE_ResolvePlusReload(&profile);
+		valid = GE_ResolvePlusReload(&profile) || GE_ResolvePlus24Reload(&profile);
 	}
 	if(!valid) return;
-	for(unsigned int i = 0; i < 23; i++)
+	for(unsigned int i = 0; i < profile.count; i++)
 		if(!GE_PatchWordIsSafe(profile.address[i], profile.original[i], profile.replacement[i])) return;
-	for(unsigned int i = 0; i < 23; i++) GE_WriteOwnedROM(profile.address[i], profile.replacement[i]);
+	for(unsigned int i = 0; i < profile.count; i++) GE_WriteOwnedROM(profile.address[i], profile.replacement[i]);
 }

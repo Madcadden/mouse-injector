@@ -43,17 +43,13 @@ ifdef USE_DISCORD_PRESENCE
 endif
 LFLAGS = -shared $(OBJS) -o $(DLLNAME) $(LIBS) -m32 -s -Wl,--add-stdcall-alias
 
-# The released F3 sources are maintained as a verified patch series.
-# Prepare before a separate make pass so generated header dependencies exist.
+# Sources include the retained F3 precision fix and reviewed menu adapters.
+# Build preparation is non-mutating and repeatable.
 PYTHON ?= python
-.PHONY: mouseinjector prepare-f3 _mouseinjector all clean
-mouseinjector: prepare-f3
-	$(MAKE) _mouseinjector
-
-prepare-f3:
-	$(PYTHON) tools/prepare_freefly_f3.py
-	$(PYTHON) tools/apply_plus_levelmod_cursor.py
+.PHONY: mouseinjector _mouseinjector all clean
+mouseinjector:
 	mkdir -p $(OBJDIR)
+	$(MAKE) _mouseinjector
 
 _mouseinjector: $(OBJS)
 	$(CC) $(LFLAGS)
@@ -85,10 +81,10 @@ $(OBJDIR)manymouse.o: $(MANYMOUSEDIR)manymouse.c $(MANYMOUSEDIR)manymouse.h
 $(OBJDIR)windows_wminput.o: $(MANYMOUSEDIR)windows_wminput.c $(MANYMOUSEDIR)manymouse.h
 	$(CC) -c $(MANYMOUSEDIR)windows_wminput.c -o $(OBJDIR)windows_wminput.o $(CFLAGS)
 
-$(OBJDIR)game.o: $(GAMESDIR)game.c $(GAMESDIR)game.h
+$(OBJDIR)game.o: $(GAMESDIR)game.c $(GAMESDIR)game.h $(GAMESDIR)native_input.h $(SRCDIR)global.h $(SRCDIR)maindll.h
 	$(CC) -c $(GAMESDIR)game.c -o $(OBJDIR)game.o $(CFLAGS) $(WARNINGS)
 
-$(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.mapmaker16.h $(GAMESDIR)goldeneye.freeflytrace.h $(GAMESDIR)goldeneye.freeflyreport.h $(GAMESDIR)goldeneye.reload.h $(GAMESDIR)goldeneye.c $(GAMESDIR)goldeneye.mapmenu.h $(GAMESDIR)goldeneye.menunav.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
+$(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.mapmaker16.h $(GAMESDIR)goldeneye.freeflytrace.h $(GAMESDIR)goldeneye.freeflyreport.h $(GAMESDIR)goldeneye.reload.h $(GAMESDIR)goldeneye.reload24.h $(GAMESDIR)goldeneye.c $(GAMESDIR)goldeneye.mapmenu.h $(GAMESDIR)goldeneye.menunav.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)goldeneye.c -o $(OBJDIR)goldeneye.o $(CFLAGS) $(WARNINGS)
 
 $(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(GAMESDIR)perfectdark.h $(GAMESDIR)perfectdark.compat.h $(GAMESDIR)perfectdark.signatures.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h

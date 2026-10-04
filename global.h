@@ -1,3 +1,5 @@
+#ifndef MOUSE_INJECTOR_GLOBAL_H
+#define MOUSE_INJECTOR_GLOBAL_H
 //==========================================================================
 // Mouse Injector Plugin
 //==========================================================================
@@ -167,3 +169,5 @@ typedef union
 		signed X_AXIS: 8;
 	};
 } BUTTONS;
+
+#endif

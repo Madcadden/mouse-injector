@@ -16,7 +16,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
     'device.c': '77b91abb84075bf9829899f84c84f6c925e636823579d8854db9e804af9d26d4',
-    'maindll.c': '2c1f3042811ef0bbaa7e78a8e13d52c9cdb131b2d152b537260c4400e0fe3b2f',
+    'maindll.c': 'f42b111b8868cf57d211dc1a6a4b9705dedba0c1ed5e00df365eb917aa9d36c7',
     'games/goldeneye.c': '07e09963232c029f930185a64379d3b474887b793020e599bb03b70f0a69e8d9',
     'games/goldeneye.mapmenu.h': 'b3d59bcbe494f245f608411c932ecd13240ad515df7c8ede3cadf9ae06b21573',
     'freefly_trace.h': '0f3eaa5c2c5ac38cf103f892020b122071ea57b5260daaf16a5f1e37a154cb41',

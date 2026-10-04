@@ -29,3 +29,4 @@ extern int GAME_Status(void);
 extern const char *GAME_Name(void);
 extern void GAME_Inject(void);
 extern void GAME_Quit(void);
+extern void GAME_ClearInput(void);

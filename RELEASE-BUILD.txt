@@ -1,0 +1,10 @@
+Mouse Injector: confirmed Plus 2.4 build
+
+Published binary: release/plus24/Mouse_Injector.dll
+SHA-256: bfd2f95ed75d1683ab6b4f16e7f2f1f7f0869ed703f061c6870842293080d0a0
+User confirmed the delivered candidate works on 4 October 2026.
+The original candidate verification report remains an unchanged record of pre-publication checks; see confirmation.json for the subsequent user test.
+
+This is already-prepared source. Use BUILD-CANDIDATE.txt and the Zig build helper directly; do not rerun historical preparation scripts.
+The original build manifest and test reports are under release/plus24/.
+The 1964 executable was not rebuilt or changed for this injector update.

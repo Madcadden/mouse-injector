@@ -21,7 +21,7 @@ new = '''\t/* These are N64 binary32 constants, not approximate decimal values.
 if text.count(old) != 1:
     raise SystemExit('F2 camera validation does not match; nothing written')
 path.write_text(text.replace(old, new), newline='\n')
-for name in ('maindll.c', 'freefly_trace.h', 'games/goldeneye.freeflytrace.h'):
+for name in ('freefly_trace.h', 'games/goldeneye.freeflytrace.h'):
     path = root / name
     text = path.read_text()
     if 'FreeFly-F2' not in text:

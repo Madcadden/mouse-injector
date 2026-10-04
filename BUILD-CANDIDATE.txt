@@ -1,0 +1,24 @@
+Candidate source and build
+
+This is prepared source recovered from naming-only revision
+8a184a30f8ae7877d3546ca67096fb1e6be11c7e, plus the candidate changes.
+Do not rerun historical tools/prepare_freefly_f3.py or
+ tools/apply_plus_levelmod_cursor.py over this prepared source.
+The current makefile builds it directly. Historical patch tools and old fixture
+ tests remain as references; the Plus 2.4 tests below are the current checks.
+
+Built with Zig 0.13.0:
+ python tools/build_injector_zig.py --source . --zig /path/to/zig --output /path/to/build
+The output is a Win32 DLL. The helper records every compilation input hash.
+MinGW make builds remain supported by the makefile but were not run here;
+MinGW installation was unavailable in this environment.
+
+Production handler simulation:
+ PLUS24_PATCH_OUTPUT=/tmp/reload.tsv python tests/test_plus24_candidate.py /path/to/plus24.z64 /path/to/olderplus.z64 /path/to/retail.z64 /path/to/randomeye.z64
+ python tests/test_plus24_reload_mips.py /path/to/plus24.z64 /tmp/reload.tsv
+The latter requires Python unicorn. No ROM bytes are included.
+ python tests/test_pd_compat.py /path/to/PerfectDark-USA-Rev1.z64
+
+The repeat build matched after normalising the PE build timestamp. Distribute
+only the exact candidate DLL identified in READ-ME-FIRST.txt, not an untested
+replacement rebuilt with different tools.

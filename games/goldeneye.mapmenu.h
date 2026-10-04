@@ -46,7 +46,9 @@ static int GE_MapMakerMenuMouse(const GE_ADDRESS_PROFILE *profile, const float s
 		selector = editor->menu_selection;
 		selected = EMU_ReadInt(selector);
 		tool = EMU_ReadInt(editor->menu_tool);
-		if(selected < 0 || selected >= 14 || tool < 0 || tool >= 5) return 0;
+		if((editor->menu_rows != 14 && editor->menu_rows != 16)
+			|| !editor->menu_stride || selected < 0 || selected >= (int)editor->menu_rows
+			|| tool < 0 || tool >= 5) return 0;
 		ge_menu_mouse_context = 1;
 		right = tool == 1 ? 310 : 354;
 	}
@@ -76,12 +78,17 @@ static int GE_MapMakerMenuMouse(const GE_ADDRESS_PROFILE *profile, const float s
 	}
 	if(ge_menu_mouse_context == 1)
 	{
-		if(x >= 86 && x <= right && y >= 51 && y < 317)
-			hover = (int)((y - 51) / 19);
-		/* Grid has no A/Z action. Material/music values have native +/-
-		 * input, whereas clicking their labels keeps Z's original action. */
-		if(hover == 10 || ((hover == 5 || hover == 8) && x >= 224))
+		const float valuex = editor->menu_music_x;
+		if(x >= 86 && x <= right && y >= editor->menu_top
+			&& y < editor->menu_top + editor->menu_rows * editor->menu_stride)
+			hover = (int)((y - editor->menu_top) / editor->menu_stride);
+		/* Material and Grid have no native A/Z action: a label click advances,
+		 * while either half of the value decrements/increments. Music's label
+		 * retains its native A/Z action; its value position is layout-specific. */
+		if(hover == 5 || hover == 10)
 			ge_menu_mouse_adjust = x >= 224 && x < 260 ? -1 : 1;
+		else if(hover == 8 && x >= valuex)
+			ge_menu_mouse_adjust = x < valuex + 36 ? -1 : 1;
 	}
 	else if(x >= 70 && x <= 400)
 	{

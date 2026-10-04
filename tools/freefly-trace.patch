@@ -34,34 +34,6 @@
  		Sleep(TICKRATE);
  	}
  	GAME_Quit(); // reset game driver's global variables
---- a/maindll.c
-+++ b/maindll.c
-@@ -412,6 +412,7 @@
- //==========================================================================
- static void GUI_Init(const HWND hW)
- {
-+	SetWindowTextA(hW, "Mouse Injector - FreeFly-F2");
- 	CheckRadioButton(hW, IDC_PLAYER1, IDC_PLAYER4, IDC_PLAYER1 + currentplayer); // check current player's radio button
- 	for(int connectedindex = 0; connectedindex < DEV_Init(); connectedindex++) // add devices to combobox
- 	{
-@@ -976,7 +977,7 @@
- //==========================================================================
- DLLEXPORT void CALL DllAbout(HWND hParent)
- {
--	MessageBoxA(hParent, "Mouse Injector for GE/PD "__MOUSE_INJECTOR_VERSION__" (Build: "__DATE__")\nCopyright (C) "__CURRENTYEAR__", Carnivorous", "Mouse Injector - About", MB_ICONINFORMATION | MB_OK);
-+	MessageBoxA(hParent, "Mouse Injector for GE/PD "__MOUSE_INJECTOR_VERSION__" FreeFly-F2 (Build: "__DATE__")\nCopyright (C) "__CURRENTYEAR__", Carnivorous", "Mouse Injector - About", MB_ICONINFORMATION | MB_OK);
- }
- //==========================================================================
- // Purpose: Optional function that is provided to allow the user to configure the DLL
-@@ -1015,7 +1016,7 @@
- 	#if PD_DECOMP
- 	sprintf(PluginInfo->Name, "Mouse Injector for Perfect Dark Decomp "__MOUSE_INJECTOR_VERSION__"");
- 	#else
--	sprintf(PluginInfo->Name, "Mouse Injector for GE/PD "__MOUSE_INJECTOR_VERSION__"");
-+	sprintf(PluginInfo->Name, "Mouse Injector for GE/PD "__MOUSE_INJECTOR_VERSION__" FreeFly-F2");
- 	#endif
- #if SPEEDRUN_BUILD
- 	sprintf(PluginInfo->Name, "%s (Speedrun Build)", PluginInfo->Name);
 --- a/games/goldeneye.c
 +++ b/games/goldeneye.c
 @@ -646,6 +646,8 @@
