@@ -1,0 +1,128 @@
+name: Generic injector identity and Plus source audit
+on:
+  push:
+    branches: ['fix/generic-name-plus24-audit']
+    paths: ['.github/workflows/generic-name-plus24-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Joshua-1248/GoldenEye-007-Plus
+          ref: main
+          fetch-depth: 1
+          path: plus-reference
+          persist-credentials: false
+      - name: Record available upstream revision and menu declarations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit-out
+          git -C plus-reference show -s --format='%H%n%cI%n%s' HEAD | tee audit-out/upstream-revision.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('plus-reference')
+          bc=(root/'src/bondconstants.h').read_text()
+          m=re.search(r'typedef enum MENU\s*\{.*?\}\s*MENU\s*;',bc,re.S)
+          assert m
+          print(m.group(0))
+          out=Path('audit-out')
+          (out/'upstream-menu-enum.txt').write_text(m.group(0)+'\n')
+          for name in ('front.c','mapmaker.c','options.c','mpmenu.c'):
+              p=root/'src/game'/name
+              if p.exists():
+                  text=p.read_text(errors='replace')
+                  (out/('upstream-'+name)).write_text(text)
+                  funcs=re.findall(r'^[\w *]+\b((?:interface_|constructor_|init_)[A-Za-z0-9_]*(?:menu)[A-Za-z0-9_]*)\s*\(',text,re.M)
+                  print(name,sorted(set(funcs)))
+          PY
+      - name: Restore generic labels in the maintained source preparation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,re,json
+          patch=Path('tools/freefly-trace.patch')
+          s=patch.read_text()
+          a=s.index('--- a/maindll.c\n')
+          b=s.index('--- a/games/goldeneye.c\n',a)
+          patch.write_text(s[:a]+s[b:])
+          p=Path('tools/fix_freefly_precision.py')
+          s=p.read_text()
+          old="for name in ('maindll.c', 'freefly_trace.h', 'games/goldeneye.freeflytrace.h'):"
+          assert s.count(old)==1
+          p.write_text(s.replace(old,"for name in ('freefly_trace.h', 'games/goldeneye.freeflytrace.h'):"))
+          p=Path('tools/prepare_freefly_f3.py')
+          s=p.read_text()
+          h=hashlib.sha256(Path('maindll.c').read_bytes().replace(b'\r\n',b'\n')).hexdigest()
+          s,n=re.subn(r"('maindll.c': ')[0-9a-f]{64}(')",lambda m:m[1]+h+m[2],s)
+          assert n==1
+          p.write_text(s)
+          Path('audit-out/generic-name-change.json').write_text(json.dumps({'maindll_sha256':h,'change':'Remove only the three diagnostic UI-name hunks; camera code is unchanged','menu_2_4_verified':False},indent=2)+'\n')
+          PY
+          git diff --check
+          git diff -- tools/freefly-trace.patch tools/fix_freefly_precision.py tools/prepare_freefly_f3.py > audit-out/generic-name.patch
+      - name: Preserve corrected source before building
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/freefly-trace.patch tools/fix_freefly_precision.py tools/prepare_freefly_f3.py
+          git commit -m 'Restore generic Mouse Injector identity without changing camera code'
+          git rev-parse HEAD > audit-out/source-commit.txt
+          git archive --format=zip --output=audit-out/Mouse-Injector-Generic-Name-Source.zip HEAD
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)" push origin "HEAD:refs/heads/fix/generic-name-plus24-audit"
+        env:
+          TOKEN: ${{ github.token }}
+      - name: Install Win32 compiler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-mingw-w64-i686 binutils-mingw-w64-i686
+      - name: Build and verify generic injector labels
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p obj
+          make -j2 CC=i686-w64-mingw32-gcc WINDRES=i686-w64-mingw32-windres PYTHON=python3 2>&1 | tee audit-out/build.log
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,zipfile
+          s=Path('maindll.c').read_text()
+          assert 'FreeFly' not in s and 'Free-Fly' not in s
+          assert 'Mouse Injector for GE/PD ' in s
+          rc=Path('ui/ui.rc').read_text()
+          assert 'CAPTION "Mouse Injector"' in rc
+          game=Path('games/goldeneye.c').read_text()
+          assert '0xBFC90FDAU' in game and '0x3FC90FDAU' in game
+          dll=Path('Mouse_Injector.dll').read_bytes()
+          assert b'Mouse Injector for GE/PD ' in dll
+          assert b'Mouse Injector - FreeFly' not in dll
+          assert b' FreeFly-F3 (Build:' not in dll
+          assert b'Mouse Injector for GE/PD V2.3 FreeFly' not in dll
+          out=Path('audit-out')
+          report={'dll_sha256':hashlib.sha256(dll).hexdigest(),'identity_checks_pass':True,'camera_binary32_fix_retained':True,'menu_2_4_verified':False,'interactive_emulator_test':False}
+          (out/'name-verification.json').write_text(json.dumps(report,indent=2)+'\n')
+          with zipfile.ZipFile(out/'Mouse-Injector-Generic-Name-Only.zip','w',zipfile.ZIP_DEFLATED) as z:
+              z.writestr('plugin/Mouse_Injector.dll',dll)
+              z.writestr('README.txt','Generic-name-only build. This is NOT a Plus 2.4 menu compatibility fix. Replaces only plugin/Mouse_Injector.dll. Existing executable, settings and ROMs are unchanged.\n')
+              z.writestr('SHA256SUMS.txt',report['dll_sha256']+'  plugin/Mouse_Injector.dll\n')
+          print(json.dumps(report,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: generic-name-and-upstream-audit
+          path: audit-out/
+          retention-days: 14
+          if-no-files-found: error
