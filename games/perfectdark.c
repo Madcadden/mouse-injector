@@ -33,9 +33,14 @@
 
 #if !PD_DECOMP
 #include "perfectdark.compat.h"
+#include "perfectdark.beta_reload.h"
+#include "perfectdark.beta_aim.h"
 static PD_COMPAT_PROFILE pdcompat;
 static time_t pdlastprobe;
-static int pdhookstate;
+static int pdhookstate; // 1 = original retail hooks, 2 = validated beta aim hooks
+static int pdbetareloadstate;
+static PD_BETA_RELOAD_PLAN pdbetareload;
+static PD_BETA_AIM_PATCH pdbetaaim;
 
 static int PD_ReadMapped(void *context, unsigned int address, unsigned int *word)
 {
@@ -44,6 +49,55 @@ static int PD_ReadMapped(void *context, unsigned int address, unsigned int *word
 		return 0;
 	*word = (unsigned int)EMU_ReadInt(address);
 	return 1;
+}
+
+static void PD_WriteMapped(void *context, unsigned int address, unsigned int word)
+{
+	(void)context;
+	EMU_WriteInt(address, (int)word);
+}
+
+static void PD_CheckBetaHookOwnership(void)
+{
+	unsigned int word;
+	if(pdhookstate == 2)
+		for(unsigned int i = 0; i < pdbetaaim.count; i++)
+			if(!PD_ReadMapped(0, pdbetaaim.address[i], &word) || word != pdbetaaim.replacement[i])
+			{
+				pdhookstate = 0;
+				break;
+			}
+	if(pdbetareloadstate)
+		for(unsigned int i = 0; i < pdbetareload.count; i++)
+			if(!PD_ReadMapped(0, pdbetareload.words[i].address, &word) || word != pdbetareload.words[i].replacement)
+			{
+				pdbetareloadstate = 0;
+				break;
+			}
+}
+
+static void PD_InstallBetaHooks(void)
+{
+	PD_BETA_RELOAD_PLAN reload;
+	PD_BETA_AIM_PATCH aim;
+	if(pdhookstate || pdbetareloadstate || !PD_BetaReloadPrepare(PD_ReadMapped, 0, &pdcompat, &reload))
+		return;
+	/* Full original code/cave validation above happens before either writer.
+	 * Exact crosshair instructions prove the shared player/hand layout. */
+	if(PD_BetaAimResolve(PD_ReadMapped, 0, &pdcompat, reload.gamebase, &aim))
+	{
+		for(unsigned int i = aim.count; i-- > 0;)
+			PD_WriteMapped(0, aim.address[i], aim.replacement[i]);
+		pdbetaaim = aim;
+		pdhookstate = 2;
+	}
+#ifndef SPEEDRUN_BUILD
+	if(PD_BetaReloadApply(PD_ReadMapped, PD_WriteMapped, 0, &reload))
+	{
+		pdbetareload = reload;
+		pdbetareloadstate = 1;
+	}
+#endif
 }
 
 static int PD_ResolveCompatibility(void)
@@ -66,6 +120,19 @@ static int PD_ResolveCompatibility(void)
 		return 0;
 	pdlastprobe = now;
 	return PD_CompatResolve(PD_ReadMapped, 0, &pdcompat);
+}
+
+/* Resolve every page before dereferencing live engine pointers. A player may
+ * disappear during level transitions even while the global profile is cached. */
+static int PD_MappedRange(unsigned int address, unsigned int bytes)
+{
+	unsigned int last, word;
+	if(!bytes || (address & 3) || address < 0x80001000U ||
+		address > 0x80800000U - bytes) return 0;
+	last = address + bytes - 1;
+	for(unsigned int page = address & ~0xFFFU; page <= (last & ~0xFFFU); page += 0x1000)
+		if(!PD_ReadMapped(0, page, &word)) return 0;
+	return 1;
 }
 
 static int PD_SettingOriginal(unsigned int index)
@@ -167,6 +234,10 @@ static void PD_AdjustViewModels(void)
 #define BIKEROLLLIMIT 0.7852724195 // 0xBF49079D/0x3F49079D
 #define PI 3.1415927 // 0x40490FDB
 // PERFECT DARK ADDRESSES - OFFSET ADDRESSES BELOW (REQUIRES PLAYERBASE/BIKEBASE TO USE)
+/* Compiled offsetof audit of the matching NTSC beta, NTSC 1.0 and PAL beta
+ * decomp headers: all fields below retain these offsets (player size 0x1c70,
+ * hand stride 0x7a4). Their exact 43-instruction crosshair windows also match.
+ * The beta camera discovery differences concern globals, not this layout. */
 #define PD_deathflag 0xd8
 #define PD_stanceflag 0xac
 #define PD_camx 0x144
@@ -245,8 +316,12 @@ int PD_Status(void)
 	#else
 	if(!PD_ResolveCompatibility())
 		return 0;
-	const int pd_menu = EMU_ReadInt(PD_menu(PLAYER1)), pd_camera = EMU_ReadInt(PD_camera), pd_pause = EMU_ReadInt(PD_pause);
-	return (pd_menu >= 0 && pd_menu <= 1 && pd_camera >= 0 && pd_camera <= 7 && pd_pause >= 0 && pd_pause <= 1);
+	PD_CheckBetaHookOwnership();
+	unsigned int pd_menu, pd_camera, pd_pause;
+	if(!PD_ReadMapped(0, PD_menu(PLAYER1), &pd_menu) ||
+		!PD_ReadMapped(0, PD_camera, &pd_camera) || !PD_ReadMapped(0, PD_pause, &pd_pause))
+		return 0;
+	return pd_menu <= 1 && pd_camera <= 7 && pd_pause <= 1;
 	#endif
 }
 //==========================================================================
@@ -267,11 +342,28 @@ void PD_Inject(void)
 		if(PROFILE[player].SETTINGS[CONFIG] == DISABLED) // bypass disabled players
 			continue;
 		playerbase[player] = JOANNADATA(player);
+#if !PD_DECOMP
+		if(!PD_MappedRange(playerbase[player], 0x1C70))
+		{
+			PD_ResetCrouchToggle(player);
+			PD_ResetCamspyStance(player);
+			PD_ResetCamspySlayerStick(player);
+			continue;
+		}
+#endif
 		const int dead = EMU_ReadInt(playerbase[player] + PD_deathflag);
 		const int menu = EMU_ReadInt(PD_menu(player));
 		const int aimingflag = EMU_ReadInt(playerbase[player] + PD_aimingflag);
 		const int grabflag = EMU_ReadInt(playerbase[player] + PD_grabflag);
-		const unsigned int bikebase = EMU_ReadInt((unsigned int)EMU_ReadInt(playerbase[player] + PD_bikeptr) + PD_bikebase);
+		const unsigned int bikeprop = (unsigned int)EMU_ReadInt(playerbase[player] + PD_bikeptr);
+		unsigned int bikebase = 0;
+#if !PD_DECOMP
+		if(grabflag == 3 && PD_MappedRange(bikeprop, 8))
+			bikebase = (unsigned int)EMU_ReadInt(bikeprop + PD_bikebase);
+		if(bikebase && !PD_MappedRange(bikebase, 0xC0)) bikebase = 0;
+#else
+		bikebase = (unsigned int)EMU_ReadInt(bikeprop + PD_bikebase);
+#endif
 		const int thirdperson = EMU_ReadInt(playerbase[player] + PD_thirdperson);
 		const int cursoraimingflag =
 #if !PD_DECOMP
@@ -309,6 +401,7 @@ void PD_Inject(void)
 			{
 				PD_ResetCrouchToggle(player);
 				float bikeyaw = EMU_ReadFloat(bikebase + PD_bikeyaw), bikeroll = EMU_ReadFloat(bikebase + PD_bikeroll);
+				if(!isfinite(bikeyaw) || !isfinite(bikeroll)) continue;
 				if(!cursoraimingflag)
 				{
 					bikeyaw -= DEVICE[player].XPOS / 10.0f * sensitivity / (360 / BIKEXROTATIONLIMIT) * (fov / basefov);
@@ -472,12 +565,18 @@ static void PD_CamspySlayer(const int player, const int camspyflag, const float 
 	if(camspyflag)
 	{
 		const unsigned int camspybase = (unsigned int)EMU_ReadInt(playerbase[player] + PD_camspybase);
-		if(!WITHINRANGE(camspybase)) // if camspy pointer is invalid, abort
+#if !PD_DECOMP
+		if(!PD_MappedRange(camspybase, 0x38))
+#else
+		if(!WITHINRANGE(camspybase))
+#endif
+			// if camspy pointer is invalid, abort
 			return;
 		const unsigned int camspyflag = (unsigned int)EMU_ReadInt(camspybase + PD_camspyflag) & 0x000000FF;
 		if(!camspyflag) // if camspy active flag is false, abort
 			return;
 		float camspyx = EMU_ReadFloat(camspybase + PD_camspyx), camspyy = EMU_ReadFloat(camspybase + PD_camspyy);
+		if(!isfinite(camspyx) || !isfinite(camspyy)) return;
 		camspyx += DEVICE[player].XPOS / 10.0f * sensitivity; // regular mouselook calculation
 		while(camspyx < 0)
 			camspyx += 360;
@@ -564,6 +663,13 @@ static void PD_Controller(void)
 {
 	for(int player = PLAYER1; player < ALLPLAYERS; player++)
 	{
+		if(PROFILE[player].SETTINGS[CONFIG] == DISABLED)
+		{
+			CONTROLLER[player].Value = 0;
+			PD_ResetCamspySlayerStick(player);
+			PD_ResetRadialMenuBtns(player);
+			continue;
+		}
 		// c-pad
 		CONTROLLER[player].U_CBUTTON = DEVICE[player].BUTTONPRIM[FORWARDS] || DEVICE[player].BUTTONSEC[FORWARDS] || radialmenudirection[player][FORWARDS];
 		CONTROLLER[player].D_CBUTTON = DEVICE[player].BUTTONPRIM[BACKWARDS] || DEVICE[player].BUTTONSEC[BACKWARDS] || radialmenudirection[player][BACKWARDS];
@@ -632,13 +738,14 @@ static void PD_InjectHacks(void)
 	const int installhooks = !pdhookstate && PD_CompatLegacyHooks(PD_ReadMapped, 0, &pdcompat, &hookdelta);
 	if(!pdcompat.valid)
 		return;
+	PD_InstallBetaHooks();
 	const int addressarray[33] = {0x802C07B8, 0x802C07BC, 0x802C07EC, 0x802C07F0, 0x802C07FC, 0x802C0800, 0x802C0808, 0x802C0820, 0x802C0824, 0x802C082C, 0x802C0830, 0x803C7988, 0x803C798C, 0x803C7990, 0x803C7994, 0x803C7998, 0x803C799C, 0x803C79A0, 0x803C79A4, 0x803C79A8, 0x803C79AC, 0x803C79B0, 0x803C79B4, 0x803C79B8, 0x803C79BC, 0x803C79C0, 0x803C79C4, 0x803C79C8, 0x803C79CC, 0x803C79D0, 0x803C79D4, 0x803C79D8, 0x803C79DC}, codearray[33] = {0x0BC69E62, 0x8EA10120, 0x0BC69E67, 0x263107A4, 0x0BC69E6B, 0x4614C500, 0x46120682, 0x0BC69E6F, 0x26100004, 0x0BC69E73, 0x4614C500, 0x54200003, 0x00000000, 0xE6B21668, 0xE6A8166C, 0x0BC281F0, 0x8EA10120, 0x50200001, 0xE6380530, 0x0BC281FD, 0x8EA10120, 0x50200001, 0xE6340534, 0x0BC28201, 0x8EA10120, 0x50200001, 0xE6380530, 0x0BC2820A, 0x8EA10120, 0x50200001, 0xE6340534, 0x0BC2820D, 0x00000000}; // add branch to crosshair code so cursor aiming mode is absolute (without jitter)
 	if(installhooks)
 		for(int index = 0; index < 33; index++)
 			EMU_WriteInt(addressarray[index] + hookdelta, codearray[index]);
-	if((unsigned int)EMU_ReadInt(PD_camspylookspringup) == 0xE4640028) // add code to remove look spring logic for camspy
+	if(PD_SettingOriginal(PDS_SPYUP)) // add code to remove look spring logic for camspy
 		EMU_WriteInt(PD_camspylookspringup, 0x00000000); // replace instruction with nop
-	if((unsigned int)EMU_ReadInt(PD_camspylookspringdown) == 0xE4680028) // add code to remove look spring logic for camspy
+	if(PD_SettingOriginal(PDS_SPYDOWN)) // add code to remove look spring logic for camspy
 		EMU_WriteInt(PD_camspylookspringdown, 0x00000000); // replace instruction with nop
 #ifndef SPEEDRUN_BUILD // gives unfair advantage, remove for speedrun build
 	const int reloadhack_address[22] = {0x8038A218, 0x8038A21C, 0x8038A228, 0x8038A22C, 0x8038A230, 0x8038A234, 0x8038A238, 0x8038A23C, 0x8038A240, 0x8038A244, 0x8038A248, 0x8038A24C, 0x8038A250, 0x8038A254, 0x8038A258, 0x8038A25C, 0x8038A268, 0x8038A270, 0x803C79E0, 0x803C79E4, 0x803C79E8, 0x803C79EC}, reloadhack_code[22] = {0x13000003, 0x00000000, 0x8E020480, 0x5440000B, 0x804C0037, 0x3C04800A, 0x8C84A24C, 0x0C005408, 0x34050040, 0x1040000B, 0x00000000, 0x0FC28886, 0x00002025, 0x0BC69E78, 0x00000000, 0x1180FFF5, 0x00000000, 0x34040001, 0x0FC28886, 0x34040001, 0x0BC5A89D, 0x00000000}; // add reload button hack
@@ -655,7 +762,7 @@ static void PD_InjectHacks(void)
 		EMU_WriteInt(PD_radialmenutimer, 0x28410009);
 	if((unsigned int)EMU_ReadInt(PD_radialmenualphainit) == 0x3E99999A) // make radial menus initialize with 75% alpha
 		EMU_WriteFloat(PD_radialmenualphainit, 0.75f);
-	if((unsigned int)EMU_ReadInt(PD_blurfix) == 0x00000000) // add code to clear blur value on death
+	if((installhooks || pdhookstate == 1) && (unsigned int)EMU_ReadInt(PD_blurfix) == 0x00000000) // add code to clear blur value on death
 		EMU_WriteInt(PD_blurfix, 0xA46002D8); // replace nop with sh $r0, 0x02D8 ($v1)
 	if((unsigned int)EMU_ReadInt(PD_hiresoption) == 0x24040001) // disable hires mode due (only benefits console/LLE plugins which are unsupported by 1964) 
 		EMU_WriteInt(PD_hiresoption, 0x24040000); // always set to false
@@ -705,12 +812,19 @@ void PD_Quit(void)
 	memset(&pdcompat, 0, sizeof(pdcompat));
 	pdlastprobe = 0;
 	pdhookstate = 0;
+	pdbetareloadstate = 0;
+	memset(&pdbetareload, 0, sizeof(pdbetareload));
+	memset(&pdbetaaim, 0, sizeof(pdbetaaim));
 #endif
 	for(int player = PLAYER1; player < ALLPLAYERS; player++)
 	{
 		playerbase[player] = 0;
 		PD_ResetCrouchToggle(player);
 		PD_ResetCamspyStance(player);
+		PD_ResetCamspySlayerStick(player);
+		PD_ResetRadialMenuBtns(player);
+		crosshairposx[player] = crosshairposy[player] = aimx[player] = aimy[player] = 0;
+		gunrcenter[player] = gunlcenter[player] = 0;
 		xmenu[player] = 0, ymenu[player] = 0;
 	}
 }

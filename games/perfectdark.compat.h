@@ -17,6 +17,7 @@ typedef struct PD_COMPAT_PROFILE
 	unsigned int matches[PDS_COUNT];
 	unsigned int original[PDS_COUNT];
 	unsigned int camera, players, menu, pause, stage, intro, mppause;
+	int camera_beta, mp_beta;
 	int valid;
 } PD_COMPAT_PROFILE;
 
@@ -59,26 +60,60 @@ static int PD_CompatResolve(PD_COMPAT_READER read, void *context, PD_COMPAT_PROF
 		for(index = 0; index < PDS_COUNT; index++)
 		{
 			const PD_SIGNATURE *s = &pd_signatures[index];
-			if(counts[index] < 2 && (word & s->masks[0]) == (s->words[0] & s->masks[0]) &&
-				PD_CompatMatch(read, context, address, s))
+			int alternate = 0;
+			int match = counts[index] < 2 && (word & s->masks[0]) == (s->words[0] & s->masks[0]) &&
+				PD_CompatMatch(read, context, address, s);
+			if(!match && counts[index] < 2 && (index == PDS_CAMERA || index == PDS_MP))
+			{
+				const PD_SIGNATURE *beta = index == PDS_CAMERA ? &pd_beta_camera_signature : &pd_beta_mp_signature;
+				match = (word & beta->masks[0]) == (beta->words[0] & beta->masks[0]) &&
+					PD_CompatMatch(read, context, address, beta);
+				alternate = match;
+			}
+			if(!match && counts[index] < 2 && (index == PDS_SPYUP || index == PDS_SPYDOWN))
+			{
+				const PD_SIGNATURE *beta = index == PDS_SPYUP ? &pd_beta_spyup_signature : &pd_beta_spydown_signature;
+				const PD_SIGNATURE *pal = index == PDS_SPYUP ? &pd_pal_spyup_signature : &pd_pal_spydown_signature;
+				match = (word == beta->words[0] && PD_CompatMatch(read, context, address, beta)) ||
+					(word == pal->words[0] && PD_CompatMatch(read, context, address, pal));
+			}
+			if(match)
 			{
 				counts[index]++;
 				profile->matches[index] = counts[index] == 1 ? address : 0;
+				if(index == PDS_CAMERA) profile->camera_beta = alternate;
+				if(index == PDS_MP) profile->mp_beta = alternate;
 			}
 		}
 	}
 	for(index = 0; index < PDS_COUNT; index++)
 		if(profile->matches[index])
 			read(context, profile->matches[index] + pd_signatures[index].target * 4, &profile->original[index]);
-	profile->camera = PD_CompatAddress(read, context, profile->matches[PDS_CAMERA], 0, 4);
+	profile->camera = PD_CompatAddress(read, context, profile->matches[PDS_CAMERA], profile->camera_beta ? 8 : 0, profile->camera_beta ? 16 : 4);
 	profile->players = profile->camera ? profile->camera - 0x248 : 0;
 	profile->menu = PD_CompatAddress(read, context, profile->matches[PDS_MENU], 8, 0x18);
 	profile->pause = PD_CompatAddress(read, context, profile->matches[PDS_PAUSE], 0, 8);
 	profile->stage = PD_CompatAddress(read, context, profile->matches[PDS_TITLE], 0x1C, 0x20);
 	profile->intro = PD_CompatAddress(read, context, profile->matches[PDS_TITLE], 0x14, 0x18);
-	profile->mppause = PD_CompatAddress(read, context, profile->matches[PDS_MP], 0, 4);
-	if(profile->mppause)
-		profile->mppause += 0x1E;
+	if(profile->mp_beta && profile->matches[PDS_MP])
+	{
+		unsigned int hi, lo, hi2, lo2;
+		/* Adjacent setter and getter must name the same byte, exactly. */
+		unsigned int at = profile->matches[PDS_MP];
+		if(read(context, at, &hi) && read(context, at + 12, &lo) &&
+			read(context, at + 16, &hi2) && read(context, at + 20, &lo2))
+		{
+			unsigned int a = ((hi & 0xFFFFU) << 16) + (int)(short)lo;
+			unsigned int b = ((hi2 & 0xFFFFU) << 16) + (int)(short)lo2;
+			if(a == b && a >= 0x80001000U && a < 0x807FF000U && (a & 3) == 2)
+				profile->mppause = a;
+		}
+	}
+	else
+	{
+		profile->mppause = PD_CompatAddress(read, context, profile->matches[PDS_MP], 0, 4);
+		if(profile->mppause) profile->mppause += 0x1E;
+	}
 	profile->valid = profile->camera && profile->players && profile->menu && profile->pause && profile->stage && profile->intro && profile->mppause;
 	if(profile->valid)
 	{

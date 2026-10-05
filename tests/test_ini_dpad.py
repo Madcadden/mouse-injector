@@ -14,6 +14,10 @@ start = source.index('static void INI_Load(const HWND hW, const int loadplayer)\
 end = source.index('static void UpdateControllerStatus(void)\n{', start)
 functions = source[start:end]
 header = (ROOT / 'global.h').read_text().split('// plugin spec')[0]
+# The production header now has an include guard; the test extracts only its
+# pre-plugin declarations, so close that guard at the extraction boundary.
+if '#ifndef MOUSE_INJECTOR_GLOBAL_H' in header:
+    header += '\n#endif\n'
 vkeys = (ROOT / 'vkey.h').read_text().split('struct VKeyInfo')[0]
 harness = r'''
 #include <stdio.h>

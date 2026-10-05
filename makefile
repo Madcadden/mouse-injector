@@ -87,7 +87,7 @@ $(OBJDIR)game.o: $(GAMESDIR)game.c $(GAMESDIR)game.h $(GAMESDIR)native_input.h $
 $(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.mapmaker16.h $(GAMESDIR)goldeneye.freeflytrace.h $(GAMESDIR)goldeneye.freeflyreport.h $(GAMESDIR)goldeneye.reload.h $(GAMESDIR)goldeneye.reload24.h $(GAMESDIR)goldeneye.c $(GAMESDIR)goldeneye.mapmenu.h $(GAMESDIR)goldeneye.menunav.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)goldeneye.c -o $(OBJDIR)goldeneye.o $(CFLAGS) $(WARNINGS)
 
-$(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(GAMESDIR)perfectdark.h $(GAMESDIR)perfectdark.compat.h $(GAMESDIR)perfectdark.signatures.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
+$(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(GAMESDIR)perfectdark.h $(GAMESDIR)perfectdark.compat.h $(GAMESDIR)perfectdark.signatures.h $(GAMESDIR)perfectdark.beta_reload.h $(GAMESDIR)perfectdark.beta_aim.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)perfectdark.c -o $(OBJDIR)perfectdark.o $(CFLAGS) $(WARNINGS)
 
 $(OBJDIR)ui.res: $(RCFILE) $(RESOURCEFILE)

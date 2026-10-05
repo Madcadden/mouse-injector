@@ -2,7 +2,7 @@
  * where the resolver extracts them; code-cave patches retain exact fingerprints.
  * These windows intentionally reject different compiler/register layouts. */
 static const unsigned int pd_camera_words[10] = {0x3C02800AU, 0x8C42A26CU, 0x8C631458U, 0x27BDFFE8U, 0xAFBF0014U, 0x10620015U, 0x24040006U, 0x54440009U, 0x24040001U, 0x50640007U};
-static const unsigned int pd_camera_masks[10] = {0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
+static const unsigned int pd_camera_masks[10] = {0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
 static const unsigned int pd_menu_words[12] = {0x24050001U, 0x8E09028CU, 0x3C018007U, 0x24080001U, 0x00095080U, 0x002A0821U, 0xAC280750U, 0x0FC4A24BU, 0x8FA40024U, 0x8E0B0438U, 0x8FBF001CU, 0x00001025U};
 static const unsigned int pd_menu_masks[12] = {0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFC000000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
 static const unsigned int pd_pause_words[14] = {0x3C028008U, 0x03E00008U, 0x8C424014U, 0x3C028008U, 0x03E00008U, 0x8C424020U, 0x04800003U, 0x28810004U, 0x14200002U, 0x00000000U, 0x00002025U, 0x3C018008U, 0x03E00008U, 0xAC244020U};
@@ -22,7 +22,7 @@ static const unsigned int pd_zoomout_masks[10] = {0xFFFFFFFFU, 0xFFFFFFFFU, 0xFF
 static const unsigned int pd_control_words[11] = {0x3C02800BU, 0x004E1021U, 0x03E00008U, 0x9042C7FCU, 0x00047080U, 0x01C47021U, 0x000E7140U, 0x3C01800BU, 0x002E0821U, 0x03E00008U, 0xA025C7FCU};
 static const unsigned int pd_control_masks[11] = {0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U};
 static const unsigned int pd_pitch_words[11] = {0x9442C800U, 0x304F0001U, 0x03E00008U, 0x000F102BU, 0x00047080U, 0x01C47021U, 0x000E7140U, 0x3C02800BU, 0x004E1021U, 0x9442C800U, 0x304F0008U};
-static const unsigned int pd_pitch_masks[11] = {0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU};
+static const unsigned int pd_pitch_masks[11] = {0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFFFFFFU};
 static const unsigned int pd_spyup_words[10] = {0x8DC30480U, 0xC46A0028U, 0x46005101U, 0xE4640028U, 0x8D390038U, 0x0059082AU, 0x5420FFF7U, 0x8D2E0284U, 0x8D2F0284U, 0x8DF80480U};
 static const unsigned int pd_spyup_masks[10] = {0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
 static const unsigned int pd_spydown_words[10] = {0x8F230480U, 0xC4660028U, 0x46003200U, 0xE4680028U, 0x8D2F0038U, 0x004F082AU, 0x5420FFF7U, 0x8D390284U, 0x8D380284U, 0x8F0E0480U};
@@ -73,3 +73,25 @@ static const PD_SIGNATURE pd_signatures[PDS_COUNT] = {
 	{pd_reloadfunc_words, pd_reloadfunc_masks, 16, 0, 0x802C2218U},
 	{pd_cave_words, pd_cave_masks, 30, 0, 0x803C7988U},
 };
+
+/* NTSC beta inlines the title camera transition and lacks the final build's
+ * pause guard in mp_push_pause_dialog. Use independently validated full
+ * instruction windows; do not invent a common relocation delta. The PAL
+ * camera window above varies only in global-address operands. */
+static const unsigned int pd_beta_camera_words[30] = {0x27BDFF28U, 0x3C038006U, 0x3C02800AU, 0x8C633980U, 0x8C42E96CU, 0xAFBF0054U, 0xAFBE0050U, 0xAFB7004CU, 0xAFB60048U, 0xAFB50044U, 0xAFB40040U, 0xAFB3003CU, 0xAFB20038U, 0xAFB10034U, 0xAFB00030U, 0xF7B60028U, 0xF7B40020U, 0xAFA000D4U, 0x1062000AU, 0xAFA000C8U, 0x24010006U, 0x14610005U, 0x24010001U, 0x14410003U, 0x240E0002U, 0x3C018006U, 0xAC2E395CU, 0x3C018006U, 0xAC223980U, 0x3C0F8006U};
+static const unsigned int pd_beta_camera_masks[30] = {0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U};
+static const PD_SIGNATURE pd_beta_camera_signature = {pd_beta_camera_words, pd_beta_camera_masks, 30, 0, 0};
+static const unsigned int pd_beta_mp_words[11] = {0x3C01800BU, 0xAFA40000U, 0x03E00008U, 0xA0241456U, 0x3C02800BU, 0x90421456U, 0x27BDFF60U, 0x24010001U, 0xAFBF0034U, 0x14410075U, 0xAFA400A0U};
+static const unsigned int pd_beta_mp_masks[11] = {0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFF0000U, 0xFFFF0000U, 0xFFFF0000U, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU, 0xFFFFFFFFU};
+static const PD_SIGNATURE pd_beta_mp_signature = {pd_beta_mp_words, pd_beta_mp_masks, 11, 0, 0};
+
+/* The beta eyespy spring loops use different registers, with the same verified
+ * player->eyespy->verta chain. Separate full windows keep register flow strict. */
+static const unsigned int pd_beta_spyup_words[10] = {0x8F030480U, 0xC46A0028U, 0x46005101U, 0xE4640028U, 0x8D2F0038U, 0x004F082AU, 0x5420FFF7U, 0x8D380284U, 0x8D390284U, 0x8F2E0480U};
+static const PD_SIGNATURE pd_beta_spyup_signature = {pd_beta_spyup_words, pd_spyup_masks, 10, 3, 0};
+static const unsigned int pd_beta_spydown_words[10] = {0x8DE30480U, 0xC4660028U, 0x46003200U, 0xE4680028U, 0x8D390038U, 0x0059082AU, 0x5420FFF7U, 0x8D2F0284U, 0x8D2E0284U, 0x8DD80480U};
+static const PD_SIGNATURE pd_beta_spydown_signature = {pd_beta_spydown_words, pd_spyup_masks, 10, 3, 0};
+static const unsigned int pd_pal_spyup_words[10] = {0x8F230480U, 0xC4640028U, 0x46002181U, 0xE4660028U, 0x8D380038U, 0x0058082AU, 0x5420FFF7U, 0x8D390284U, 0x8D2E0284U, 0x8DCF0480U};
+static const PD_SIGNATURE pd_pal_spyup_signature = {pd_pal_spyup_words, pd_spyup_masks, 10, 3, 0};
+static const unsigned int pd_pal_spydown_words[10] = {0x8F030480U, 0xC4680028U, 0x46004280U, 0xE46A0028U, 0x8D2E0038U, 0x004E082AU, 0x5420FFF7U, 0x8D380284U, 0x8D2F0284U, 0x8DF90480U};
+static const PD_SIGNATURE pd_pal_spydown_signature = {pd_pal_spydown_words, pd_spyup_masks, 10, 3, 0};
