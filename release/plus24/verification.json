@@ -1,0 +1,46 @@
+{
+  "rom_sha256": "981bb761d55c959c8735807d1acf3a2a0bcfecdde136e99854f4bbf98662cc8a",
+  "rom_bytes": 33554432,
+  "rom_byte_order": "big-endian z64",
+  "dll_sha256": "bfd2f95ed75d1683ab6b4f16e7f2f1f7f0869ed703f061c6870842293080d0a0",
+  "upstream_source_commit": "c42295ba400386aac4140957b6f7fa9e53ab911d",
+  "upstream_source_matches_latest_menu_graph": false,
+  "actual_rom_menu_ids": [
+    0,
+    37
+  ],
+  "upstream_source_menu_ids": [
+    0,
+    33
+  ],
+  "recognition_failure": "Pause routine stack frame changed from 0x38 to 0x60; failed mandatory signature suppressed the complete driver.",
+  "additional_findings": [
+    "Chooser now owns cursor selection; independent editor/preview routines remain recognisable.",
+    "Latest Level Modifiers use native cursor hit testing and a two-column SP list; older fixed geometry is not applicable.",
+    "Startup initializer moved by 0x10; prior mapping check rejected aim patch.",
+    "Reload/interaction action path gained two context handlers.",
+    "Optional selector fields needed clearing when replacing the cached ROM profile."
+  ],
+  "verified": {
+    "clean_win32_build": true,
+    "repeat_build": true,
+    "repeat_difference": "PE timestamp only",
+    "generic_ui_identity": true,
+    "production_host_input_simulation": true,
+    "real_rom_mips_reload_cases": 36,
+    "pd_compatibility_simulation": true,
+    "interactive_emulator": false,
+    "device_input": false,
+    "visual_hover_matrix": false,
+    "native_menu_mips_harness": "inconclusive: Unicorn harness trapped; no pass claimed"
+  },
+  "unchanged_emulator_subsystems": [
+    "graphics/depth-buffer profile",
+    "J-key texture protections",
+    "Native Test exit",
+    "EEPROM/SRAM selection",
+    "Controller Pak"
+  ],
+  "publication": "not published",
+  "future_compatibility": "Configured native controller fallback does not require optional recognition; precise mouse adaptation remains validated and may need a new layout adapter."
+}

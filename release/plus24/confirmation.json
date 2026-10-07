@@ -1,0 +1,8 @@
+{
+  "confirmed_by": "user",
+  "confirmation": "it works",
+  "confirmed_date": "2026-10-04",
+  "dll_sha256": "bfd2f95ed75d1683ab6b4f16e7f2f1f7f0869ed703f061c6870842293080d0a0",
+  "dll_bytes": 163328,
+  "scope": "User confirmed the delivered candidate works on their setup. This does not establish an exhaustive per-menu test or compatibility with every future mod."
+}

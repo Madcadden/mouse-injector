@@ -36,7 +36,7 @@ extern struct DEVICE_STRUCT DEVICE[4];
 
 extern const unsigned char **rdramptr;
 extern const unsigned char **romptr;
-extern int stopthread;
+extern volatile int stopthread;
 extern int mousetogglekey;
 extern int mousetoggle;
 extern int mouselockonfocus;
@@ -48,4 +48,3 @@ extern int overridefov;
 extern int overrideratiowidth, overrideratioheight;
 extern int geshowcrosshair;
 extern int bypassviewmodelfovtweak;
-extern int preventrandomeyedebugshortcut;

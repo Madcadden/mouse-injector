@@ -1,0 +1,12 @@
+ROM ../rom/goldeneye_007_plus_2.4.z64 maxpage=37 editor=30 legacy-levelmod=0
+10000 cached idle input polls: 1.495 ms; 600000 ROM reads (no repeated discovery)
+PASS: every page routes/releases buttons; camera, preview, editor selection, watch scope, fallback, lifecycle
+ROM ../../project_sources/13-goldeneye_007_plus_v3.z64 maxpage=33 editor=30 legacy-levelmod=31
+10000 cached idle input polls: 1.962 ms; 600000 ROM reads (no repeated discovery)
+PASS: every page routes/releases buttons; camera, preview, editor selection, watch scope, fallback, lifecycle
+ROM ../../project_sources/01-GoldenEye-007-U-.z64 maxpage=27 editor=0 legacy-levelmod=0
+10000 cached idle input polls: 1.452 ms; 600000 ROM reads (no repeated discovery)
+PASS: every page routes/releases buttons; camera, preview, editor selection, watch scope, fallback, lifecycle
+ROM ../../project_sources/09-Murks-Random-eye-zer-v1.1.z64 maxpage=27 editor=0 legacy-levelmod=0
+10000 cached idle input polls: 1.494 ms; 600000 ROM reads (no repeated discovery)
+PASS: every page routes/releases buttons; camera, preview, editor selection, watch scope, fallback, lifecycle

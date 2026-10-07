@@ -43,7 +43,7 @@ int windowactive = 1; // is emulator window active?
 
 int DEV_Init(void);
 void DEV_Quit(void);
-DWORD WINAPI DEV_InjectThread();
+DWORD WINAPI DEV_InjectThread(LPVOID parameter);
 int DEV_ReturnKey(void);
 int DEV_ReturnDeviceID(const int devicetype);
 const char *DEV_Name(const int id);
@@ -90,9 +90,12 @@ void DEV_Quit(void)
 // Purpose: Polls ManyMouse for input and injects into game
 // Changes Globals: a lot
 //==========================================================================
-DWORD WINAPI DEV_InjectThread()
+#include "freefly_trace.h"
+DWORD WINAPI DEV_InjectThread(LPVOID parameter)
 {
+	(void)parameter;
 	ManyMouseEvent event; // hold current input event (movement, buttons, ect)
+	FFTraceStart();
 	memset(&DEVICE, 0, sizeof(DEVICE)); // clear device struct
 	int checkwindowtick = 0; // check if emulator window is in focus
 	int togglebuffer = 0; // buffer cool down for mouse toggle
@@ -128,6 +131,7 @@ DWORD WINAPI DEV_InjectThread()
 		}
 		while(ManyMouse_PollEvent(&event))
 		{
+			FFTraceRaw(&event);
 			for(int player = PLAYER1; player < ALLPLAYERS; player++)
 			{
 				if(PROFILE[player].SETTINGS[CONFIG] == DISABLED) // don't check for disabled players
@@ -201,8 +205,8 @@ DWORD WINAPI DEV_InjectThread()
 			if((mouseunlockonloss || !mousetoggle) && emulatorwindow != GetForegroundWindow()) // window is inactive
 			{
 				memset(&DEVICE, 0, sizeof(DEVICE)); // reset player input
-				GAME_Inject(); // ship empty input to game
 				windowactive = 0, mousetoggle = 0, togglebuffer = 0;
+				GAME_ClearInput(); // release every controller without touching game memory
 			}
 			else // emu window is in focus
 			{
@@ -216,10 +220,16 @@ DWORD WINAPI DEV_InjectThread()
 		}
 		else
 			checkwindowtick++;
-		if(windowactive && GAME_Status() && !configdialogopen) // if emulator is focused, game is valid and config dialog isn't open
-			GAME_Inject(); // send input to game driver
+		const int gamevalid = windowactive ? GAME_Status() : 0;
+		const int injected = windowactive && !configdialogopen;
+		if(injected)
+			GAME_Inject(); // optional adaptation, otherwise fresh native controller input
+		else
+			GAME_ClearInput();
+		FFTraceFrame(gamevalid, injected);
 		Sleep(TICKRATE);
 	}
+	GAME_ClearInput();
 	GAME_Quit(); // reset game driver's global variables
 	return 0;
 }

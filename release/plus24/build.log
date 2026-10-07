@@ -1,0 +1,40 @@
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -std=c11 -O2 -fno-strict-aliasing -DPD_DECOMP=0 -Wall -Wextra -Wno-parentheses -Wno-strict-aliasing -Wno-unused-parameter -c maindll.c -o /workspace/scratch/00b9850cb43d/work/build-final/maindll.c.obj
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -std=c11 -O2 -fno-strict-aliasing -DPD_DECOMP=0 -Wall -Wextra -Wno-parentheses -Wno-strict-aliasing -Wno-unused-parameter -c device.c -o /workspace/scratch/00b9850cb43d/work/build-final/device.c.obj
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -std=c11 -O2 -fno-strict-aliasing -DPD_DECOMP=0 -Wall -Wextra -Wno-parentheses -Wno-strict-aliasing -Wno-unused-parameter -c discord.c -o /workspace/scratch/00b9850cb43d/work/build-final/discord.c.obj
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -std=c11 -O2 -fno-strict-aliasing -DPD_DECOMP=0 -Wall -Wextra -Wno-parentheses -Wno-strict-aliasing -Wno-unused-parameter -c manymouse/manymouse.c -o /workspace/scratch/00b9850cb43d/work/build-final/manymouse_manymouse.c.obj
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -std=c11 -O2 -fno-strict-aliasing -DPD_DECOMP=0 -Wall -Wextra -Wno-parentheses -Wno-strict-aliasing -Wno-unused-parameter -c manymouse/windows_wminput.c -o /workspace/scratch/00b9850cb43d/work/build-final/manymouse_windows_wminput.c.obj
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -std=c11 -O2 -fno-strict-aliasing -DPD_DECOMP=0 -Wall -Wextra -Wno-parentheses -Wno-strict-aliasing -Wno-unused-parameter -c games/game.c -o /workspace/scratch/00b9850cb43d/work/build-final/games_game.c.obj
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -std=c11 -O2 -fno-strict-aliasing -DPD_DECOMP=0 -Wall -Wextra -Wno-parentheses -Wno-strict-aliasing -Wno-unused-parameter -c games/goldeneye.c -o /workspace/scratch/00b9850cb43d/work/build-final/games_goldeneye.c.obj
+In file included from games/goldeneye.c:24:
+games/memory.h:74:9: warning: implicit conversion from 'int' to 'float' changes value from -1414676258 to -1414676224 [-Wimplicit-const-int-float-conversion]
+   74 |         return GARBAGEINT;
+      |         ~~~~~~ ^~~~~~~~~~
+games/memory.h:26:20: note: expanded from macro 'GARBAGEINT'
+   26 | #define GARBAGEINT (int)0xABADC0DE
+      |                    ^~~~~~~~~~~~~~~
+1 warning generated.
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -std=c11 -O2 -fno-strict-aliasing -DPD_DECOMP=0 -Wall -Wextra -Wno-parentheses -Wno-strict-aliasing -Wno-unused-parameter -c games/perfectdark.c -o /workspace/scratch/00b9850cb43d/work/build-final/games_perfectdark.c.obj
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig rc /i /root/.local/lib/python3.12/site-packages/ziglang/lib/include /fo /workspace/scratch/00b9850cb43d/work/build-final/ui.res /:auto-includes gnu ui/ui.rc
+ui/ui.rc:146:25: warning: control with id 4294967295 already defined for this dialog
+    CTEXT           "", (-1), 7, 427, 456, 2, 0x00000001L | 0x00001000L, 0x00000000L
+                        ^~~~
+ui/ui.rc:146:25: note: this line originated from line 146 of file 'ui/ui.rc'
+    CTEXT           "", IDC_PARTITION, 7, 427, 456, 2, SS_CENTER | SS_SUNKEN, WS_EX_LEFT
+
+ui/ui.rc:37:25: note: previous definition of control with id 4294967295 here
+    CTEXT           "", (-1), 7, 22, 456, 2, NOT 0x00010000L | 0x00000001L | 0x00001000L, 0x00000000L
+                        ^~~~
+ui/ui.rc:37:25: note: this line originated from line 37 of file 'ui/ui.rc'
+    CTEXT           "", IDC_PARTITION, 7, 22, 456, 2, NOT WS_TABSTOP | SS_CENTER | SS_SUNKEN, WS_EX_LEFT
+
+
+$ /root/.local/lib/python3.12/site-packages/ziglang/zig cc -target x86-windows-gnu -shared /workspace/scratch/00b9850cb43d/work/build-final/maindll.c.obj /workspace/scratch/00b9850cb43d/work/build-final/device.c.obj /workspace/scratch/00b9850cb43d/work/build-final/discord.c.obj /workspace/scratch/00b9850cb43d/work/build-final/manymouse_manymouse.c.obj /workspace/scratch/00b9850cb43d/work/build-final/manymouse_windows_wminput.c.obj /workspace/scratch/00b9850cb43d/work/build-final/games_game.c.obj /workspace/scratch/00b9850cb43d/work/build-final/games_goldeneye.c.obj /workspace/scratch/00b9850cb43d/work/build-final/games_perfectdark.c.obj /workspace/scratch/00b9850cb43d/work/build-final/ui.res -o /workspace/scratch/00b9850cb43d/work/build-final/Mouse_Injector.dll -s -luser32 -lgdi32 -lcomctl32

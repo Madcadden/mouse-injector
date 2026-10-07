@@ -33,6 +33,9 @@
 #endif
 #include "vkey.h"
 
+/* Called synchronously at the emulator's post-IPL game-entry boundary. */
+extern void GE_PrepareROM(void);
+
 #define DLLEXPORT __declspec(dllexport)
 #define CALL __cdecl
 
@@ -57,7 +60,7 @@ struct DEVICE_STRUCT DEVICE[4]; // global device struct
 
 const unsigned char **rdramptr = 0; // pointer to emulator's rdram table
 const unsigned char **romptr = 0; // pointer to emulator's loaded rom
-int stopthread = 1; // 1 to end inject thread
+volatile int stopthread = 1; // 1 to end inject thread
 int mousetogglekey = 0x34; // default key is 4
 int mousetoggle = 0; // mouse lock
 int mouselockonfocus = 0; // lock mouse when 1964 is focused
@@ -69,7 +72,6 @@ int overridefov = 60; // fov override
 int overrideratiowidth = 16, overrideratioheight = 9; // ratio override
 int geshowcrosshair = 0; // inject the always show ge crosshair hack on start
 int bypassviewmodelfovtweak = 0; // bypass viewmodel positional tweak for fov override
-int preventrandomeyedebugshortcut = 1; // prevent RandomEye's C-Up + C-Down debug shortcut during normal movement
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved);
 static int Init(const HWND hW);
@@ -189,6 +191,8 @@ static void StartInjection(void)
 	{
 		stopthread = 0;
 		injectthread = CreateThread(NULL, 0, DEV_InjectThread, NULL, 0, NULL); // start thread, return thread identifier
+		if(injectthread == NULL)
+			stopthread = 1;
 	}
 }
 //==========================================================================
@@ -197,10 +201,14 @@ static void StartInjection(void)
 //==========================================================================
 static void StopInjection(void)
 {
-	if(!stopthread) // check if thread is running
+	if(injectthread != NULL)
 	{
 		stopthread = 1;
+		/* The worker resets game scan caches when it exits. Finish that reset
+		 * before preparing another ROM or allowing the emulator to free it. */
+		WaitForSingleObject(injectthread, INFINITE);
 		CloseHandle(injectthread);
+		injectthread = NULL;
 	}
 }
 //==========================================================================
@@ -283,14 +291,12 @@ static BOOL CALLBACK GUI_Config(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_PRIMARY15:
 				case IDC_PRIMARY16:
 				case IDC_PRIMARY17:
-				#if PD_DECOMP
 				case IDC_PRIMARY18:
 				case IDC_PRIMARY19:
 				case IDC_PRIMARY20:
 				case IDC_PRIMARY21:
 				case IDC_PRIMARY22:
 				case IDC_PRIMARY23:
-				#endif
 					GUI_ProcessKey(hW, LOWORD(wParam), 0);
 					break;
 				case IDC_SECONDARY00:
@@ -311,14 +317,12 @@ static BOOL CALLBACK GUI_Config(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_SECONDARY15:
 				case IDC_SECONDARY16:
 				case IDC_SECONDARY17:
-				#if PD_DECOMP
 				case IDC_SECONDARY18:
 				case IDC_SECONDARY19:
 				case IDC_SECONDARY20:
 				case IDC_SECONDARY21:
 				case IDC_SECONDARY22:
 				case IDC_SECONDARY23:
-				#endif
 					GUI_ProcessKey(hW, LOWORD(wParam), 1);
 					break;
 				case IDC_INVERTPITCH:
@@ -350,11 +354,6 @@ static BOOL CALLBACK GUI_Config(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam
 				case IDC_BYPASSVIEWMODELFOVWEAK:
 					bypassviewmodelfovtweak = SendMessage(GetDlgItem(hW, LOWORD(wParam)), BM_GETCHECK, 0, 0);
 					break;
-#if !PD_DECOMP
-				case IDC_PREVENTRANDOMDEBUGSHORTCUT:
-					preventrandomeyedebugshortcut = SendMessage(GetDlgItem(hW, LOWORD(wParam)), BM_GETCHECK, 0, 0);
-					break;
-#endif
 				case IDC_RATIOHEIGHT:
 				case IDC_RATIOWIDTH:
 					if(stopthread) // do this if game isn't running
@@ -564,9 +563,6 @@ static void GUI_Refresh(const HWND hW, const int revertbtn)
 		EnableWindow(GetDlgItem(hW, index), stopthread);
 	SendMessage(GetDlgItem(hW, IDC_GESHOWCROSSHAIR), BM_SETCHECK, geshowcrosshair ? BST_CHECKED : BST_UNCHECKED, 0); // set checkbox for show crosshair
 	SendMessage(GetDlgItem(hW, IDC_BYPASSVIEWMODELFOVWEAK), BM_SETCHECK, bypassviewmodelfovtweak ? BST_CHECKED : BST_UNCHECKED, 0); // set checkbox for bypass viewmodel fov tweak
-#if !PD_DECOMP
-	SendMessage(GetDlgItem(hW, IDC_PREVENTRANDOMDEBUGSHORTCUT), BM_SETCHECK, preventrandomeyedebugshortcut ? BST_CHECKED : BST_UNCHECKED, 0);
-#endif
 	// revert button
 	if(revertbtn != 2) // 2 is ignore flag
 		EnableWindow(GetDlgItem(hW, IDC_REVERT), revertbtn); // set revert button status
@@ -712,7 +708,7 @@ static void GUI_DetectDevice(const HWND hW, const int buttonid)
 }
 //==========================================================================
 // Purpose: load profile settings (i'm really sorry about this mess)
-// Changed Globals: PROFILE, overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, preventrandomeyedebugshortcut, mouselockonfocus, mouseunlockonloss, mousetogglekey
+// Changed Globals: PROFILE, overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, mouselockonfocus, mouseunlockonloss, mousetogglekey
 //==========================================================================
 static void INI_Load(const HWND hW, const int loadplayer)
 {
@@ -720,11 +716,14 @@ static void INI_Load(const HWND hW, const int loadplayer)
 	#define BUTTONBLKSIZE (ALLPLAYERS * (TOTALBUTTONS + TOTALBUTTONS)) // 4 PLAYERS * (BUTTONPRIM + BUTTONSEC)
 	#define SETTINGBLKSIZE (ALLPLAYERS * TOTALSETTINGS) // 4 PLAYERS * SETTINGS
 	#define GLOBALOFFSET (BUTTONBLKSIZE + SETTINGBLKSIZE)
-#if PD_DECOMP
 	#define TOTALLINES (GLOBALOFFSET + 8)
-#else
-	#define LEGACYTOTALLINES (GLOBALOFFSET + 8)
-	#define TOTALLINES (GLOBALOFFSET + 9)
+#if !PD_DECOMP
+	#define LEGACYBUTTONS 18
+	#define LEGACYTOTALLINES (ALLPLAYERS * LEGACYBUTTONS * 2 + SETTINGBLKSIZE + 8)
+	#define DPADBUTTONS 22
+	#define DPADTOTALLINES (ALLPLAYERS * DPADBUTTONS * 2 + SETTINGBLKSIZE + 8)
+	#define LSHOULDERBUTTONS 23
+	#define LSHOULDERTOTALLINES (ALLPLAYERS * LSHOULDERBUTTONS * 2 + SETTINGBLKSIZE + 8)
 #endif
 	FILE *fileptr; // file pointer for mouseinjector ini
 	if((fileptr = fopen(inifilepathdefault, "r")) == NULL) // if INI file was not found
@@ -740,11 +739,26 @@ static void INI_Load(const HWND hW, const int loadplayer)
 			counter++; // add 1 to counter, so the next line can be read
 		}
 		fclose(fileptr); // close the file stream
+		int storedbuttons = TOTALBUTTONS;
+#if !PD_DECOMP
+		// Old profiles have 18 bindings (plus an optional removed debug option)
+		// or 22/23 bindings (D-pad, with optional L). Use their own block offsets.
+		if(counter == LEGACYTOTALLINES || counter == LEGACYTOTALLINES + 1)
+			storedbuttons = LEGACYBUTTONS;
+		else if(counter == DPADTOTALLINES)
+			storedbuttons = DPADBUTTONS;
+		else if(counter == LSHOULDERTOTALLINES)
+			storedbuttons = LSHOULDERBUTTONS;
+#endif
+		const int primarysize = ALLPLAYERS * storedbuttons;
+		const int buttonsize = primarysize * 2;
+		const int globaloffset = buttonsize + SETTINGBLKSIZE;
 		if(counter == TOTALLINES
 #if !PD_DECOMP
-			|| counter == LEGACYTOTALLINES
+			|| counter == LEGACYTOTALLINES || counter == LEGACYTOTALLINES + 1
+			|| counter == DPADTOTALLINES || counter == LSHOULDERTOTALLINES
 #endif
-		) // accept the current format and pre-RandomEye settings files
+		)
 		{
 			const int safesettings[2][TOTALSETTINGS] = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {3, 100, 5, 18, 1, 1, 1, 1, 16, 16}}; // safe min/max values
 			int everythingisfine = 1; // for now...
@@ -752,10 +766,10 @@ static void INI_Load(const HWND hW, const int loadplayer)
 			{
 				for(int index = 0; index < TOTALSETTINGS; index++)
 				{
-					if(everythingisfine && atoi(line[BUTTONBLKSIZE + (player * TOTALSETTINGS) + index]) >= safesettings[0][index] && atoi(line[BUTTONBLKSIZE + (player * TOTALSETTINGS) + index]) <= safesettings[1][index]) // if everything is fine
+					if(everythingisfine && atoi(line[buttonsize + (player * TOTALSETTINGS) + index]) >= safesettings[0][index] && atoi(line[buttonsize + (player * TOTALSETTINGS) + index]) <= safesettings[1][index]) // if everything is fine
 					{
 						if(loadplayer == ALLPLAYERS || player == loadplayer) // load everything if given ALLPLAYERS flag or filter loading to current player
-							PROFILE[player].SETTINGS[index] = atoi(line[BUTTONBLKSIZE + (player * TOTALSETTINGS) + index]);
+							PROFILE[player].SETTINGS[index] = atoi(line[buttonsize + (player * TOTALSETTINGS) + index]);
 					}
 					else // invalid settings, abort (this isn't fine)
 						everythingisfine = 0;
@@ -765,17 +779,14 @@ static void INI_Load(const HWND hW, const int loadplayer)
 			{
 				if(loadplayer == ALLPLAYERS) // only load if given ALLPLAYERS flag
 				{
-					overridefov = ClampInt(atoi(line[GLOBALOFFSET]), FOV_MIN, FOV_MAX); // load overridefov
-					overrideratiowidth = ClampInt(atoi(line[GLOBALOFFSET + 1]), 1, 99); // load overrideratiowidth
-					overrideratioheight = ClampInt(atoi(line[GLOBALOFFSET + 2]), 1, 99); // load overrideratioheight
-					geshowcrosshair = !(!atoi(line[GLOBALOFFSET + 3])); // load geshowcrosshair
-					bypassviewmodelfovtweak = !(!atoi(line[GLOBALOFFSET + 4])); // load bypassviewmodelfovtweak
-					mouselockonfocus = !(!atoi(line[GLOBALOFFSET + 5])); // load mouselockonfocus
-					mouseunlockonloss = !(!atoi(line[GLOBALOFFSET + 6])); // load mouseunlockonloss
-					mousetogglekey = ClampInt(atoi(line[GLOBALOFFSET + 7]), 0x00, 0xFF); // load mousetogglekey
-#if !PD_DECOMP
-					preventrandomeyedebugshortcut = counter == TOTALLINES ? !(!atoi(line[GLOBALOFFSET + 8])) : 1;
-#endif
+					overridefov = ClampInt(atoi(line[globaloffset]), FOV_MIN, FOV_MAX); // load overridefov
+					overrideratiowidth = ClampInt(atoi(line[globaloffset + 1]), 1, 99); // load overrideratiowidth
+					overrideratioheight = ClampInt(atoi(line[globaloffset + 2]), 1, 99); // load overrideratioheight
+					geshowcrosshair = !(!atoi(line[globaloffset + 3])); // load geshowcrosshair
+					bypassviewmodelfovtweak = !(!atoi(line[globaloffset + 4])); // load bypassviewmodelfovtweak
+					mouselockonfocus = !(!atoi(line[globaloffset + 5])); // load mouselockonfocus
+					mouseunlockonloss = !(!atoi(line[globaloffset + 6])); // load mouseunlockonloss
+					mousetogglekey = ClampInt(atoi(line[globaloffset + 7]), 0x00, 0xFF); // load mousetogglekey
 					if(!mousetogglekey || mousetogglekey == 0xFF || mousetogglekey == VK_ESCAPE || mousetogglekey >= VK_LBUTTON && mousetogglekey <= VK_XBUTTON2 || mousetogglekey == VK_WHEELUP || mousetogglekey == VK_WHEELDOWN || mousetogglekey == VK_WHEELRIGHT || mousetogglekey == VK_WHEELLEFT) // if mousetogglekey is set to none/escape/mouse button, reset to default key
 						mousetogglekey = 0x34;
 				}
@@ -785,15 +796,31 @@ static void INI_Load(const HWND hW, const int loadplayer)
 					{
 						if(PROFILE[player].SETTINGS[CONFIG] == DISABLED || PROFILE[player].SETTINGS[CONFIG] == CUSTOM) // only load keys if profile is disabled/custom, else skip
 						{
-							for(int button = 0; button < TOTALBUTTONS; button++)
+							for(int button = 0; button < storedbuttons; button++)
 							{
-								PROFILE[player].BUTTONPRIM[button] = ClampInt(atoi(line[player * TOTALBUTTONS + button]), 0x00, 0xFF);
-								PROFILE[player].BUTTONSEC[button] = ClampInt(atoi(line[PRIMBTNBLKSIZE + (player * TOTALBUTTONS) + button]), 0x00, 0xFF);
+								PROFILE[player].BUTTONPRIM[button] = ClampInt(atoi(line[player * storedbuttons + button]), 0x00, 0xFF);
+								PROFILE[player].BUTTONSEC[button] = ClampInt(atoi(line[primarysize + (player * storedbuttons) + button]), 0x00, 0xFF);
 								if(PROFILE[player].BUTTONPRIM[button] == VK_ESCAPE || PROFILE[player].BUTTONPRIM[button] == 0xFF) // set to none if escape/0xFF (escape can't be used for keys)
 									PROFILE[player].BUTTONPRIM[button] = 0;
 								if(PROFILE[player].BUTTONSEC[button] == VK_ESCAPE || PROFILE[player].BUTTONSEC[button] == 0xFF)
 									PROFILE[player].BUTTONSEC[button] = 0;
 							}
+#if !PD_DECOMP
+							// Give migrated custom profiles the new defaults only when free.
+							// Existing assignments and intentionally unbound new profiles stay intact.
+							const int newbuttondefaults[6] = {'I', 'K', 'J', 'L', 'U', 'O'};
+							for(int button = storedbuttons; button < TOTALBUTTONS; button++)
+							{
+								int key = PROFILE[player].SETTINGS[CONFIG] == CUSTOM ? newbuttondefaults[button - D_UP] : 0;
+								if(key == mousetogglekey) // avoid also toggling mouse capture with a newly assigned key
+									key = 0;
+								for(int oldbutton = 0; key && oldbutton < storedbuttons; oldbutton++)
+									if(PROFILE[player].BUTTONPRIM[oldbutton] == key || PROFILE[player].BUTTONSEC[oldbutton] == key)
+										key = 0;
+								PROFILE[player].BUTTONPRIM[button] = key;
+								PROFILE[player].BUTTONSEC[button] = 0;
+							}
+#endif
 						}
 						else
 							INI_SetConfig(player, PROFILE[player].SETTINGS[CONFIG]); // player is not using custom config, assign keys from function
@@ -842,9 +869,6 @@ static void INI_Save(const HWND hW)
 			for(int index = 0; index < TOTALSETTINGS; index++)
 				fprintf(fileptr, "%d\n", ClampInt(PROFILE[player].SETTINGS[index], 0, 100));
 		fprintf(fileptr, "%d\n%d\n%d\n%d\n%d\n%d\n%d\n%d", overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, mouselockonfocus, mouseunlockonloss, mousetogglekey);
-#if !PD_DECOMP
-		fprintf(fileptr, "\n%d", preventrandomeyedebugshortcut);
-#endif
 		fclose(fileptr); // close the file stream
 	}
 	else // if saving file failed (could be set to read only, antivirus is preventing file writing or filepath is invalid)
@@ -856,7 +880,7 @@ static void INI_Save(const HWND hW)
 }
 //==========================================================================
 // Purpose: reset a player struct or all players
-// Changed Globals: PROFILE, overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, preventrandomeyedebugshortcut, mouselockonfocus, mouseunlockonloss, mousetogglekey, lastinputbutton
+// Changed Globals: PROFILE, overridefov, overrideratiowidth, overrideratioheight, geshowcrosshair, bypassviewmodelfovtweak, mouselockonfocus, mouseunlockonloss, mousetogglekey, lastinputbutton
 //==========================================================================
 static void INI_Reset(const int playerflag)
 {
@@ -875,7 +899,7 @@ static void INI_Reset(const int playerflag)
 			PROFILE[player].SETTINGS[MOUSE] = defaultmouse;
 			PROFILE[player].SETTINGS[KEYBOARD] = defaultkeyboard;
 		}
-		overridefov = 60, overrideratiowidth = 16, overrideratioheight = 9, geshowcrosshair = 0, bypassviewmodelfovtweak = 0, mouselockonfocus = 0, mouseunlockonloss = 1, mousetogglekey = 0x34, preventrandomeyedebugshortcut = 1;
+		overridefov = 60, overrideratiowidth = 16, overrideratioheight = 9, geshowcrosshair = 0, bypassviewmodelfovtweak = 0, mouselockonfocus = 0, mouseunlockonloss = 1, mousetogglekey = 0x34;
 	}
 	else
 	{
@@ -901,8 +925,8 @@ static void INI_SetConfig(const int playerflag, const int config)
 		{69, 68, 83, 70, 1, 2, 84, 87, 82, 13, 65, 0, 10, 11, 38, 40, 37, 39, 0, 0, 0, 0, 0, 0}}; // ESDF
 	#else
 	const int defaultbuttons[2][TOTALBUTTONS] = {
-		{87, 83, 65, 68, 1, 2, 82, 81, 69, 13, 17, 0, 10, 11, 38, 40, 37, 39}, // WASD
-		{69, 68, 83, 70, 1, 2, 84, 87, 82, 13, 65, 0, 10, 11, 38, 40, 37, 39}}; // ESDF
+		{87, 83, 65, 68, 1, 2, 82, 81, 69, 13, 17, 0, 10, 11, 38, 40, 37, 39, 73, 75, 74, 76, 85, 79}, // WASD; D-pad I/K/J/L, L/R shoulders U/O
+		{69, 68, 83, 70, 1, 2, 84, 87, 82, 13, 65, 0, 10, 11, 38, 40, 37, 39, 73, 75, 74, 76, 85, 79}}; // ESDF; D-pad I/K/J/L, L/R shoulders U/O
 	#endif
 	for(int buttons = 0; buttons < TOTALBUTTONS; buttons++)
 	{
@@ -1041,6 +1065,8 @@ DLLEXPORT void CALL RomClosed(void)
 {
 	mousetoggle = 0;
 	StopInjection();
+	romptr = 0;
+	rdramptr = 0;
 }
 //==========================================================================
 // Purpose: Called when a ROM is open (from the emulation thread)
@@ -1088,5 +1114,10 @@ DLLEXPORT void CALL HookRDRAM(DWORD *Mem, int OCFactor)
 //==========================================================================
 DLLEXPORT void CALL HookROM(DWORD *Rom)
 {
+	const int restart = !stopthread;
+	StopInjection();
 	romptr = (const unsigned char **)Rom;
+	GE_PrepareROM();
+	if(restart)
+		StartInjection();
 }

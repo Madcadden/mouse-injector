@@ -43,11 +43,19 @@ ifdef USE_DISCORD_PRESENCE
 endif
 LFLAGS = -shared $(OBJS) -o $(DLLNAME) $(LIBS) -m32 -s -Wl,--add-stdcall-alias
 
-#Main recipes
-mouseinjector: $(OBJS)
+# Sources include the retained F3 precision fix and reviewed menu adapters.
+# Build preparation is non-mutating and repeatable.
+PYTHON ?= python
+.PHONY: mouseinjector _mouseinjector all clean
+mouseinjector:
+	mkdir -p $(OBJDIR)
+	$(MAKE) _mouseinjector
+
+_mouseinjector: $(OBJS)
 	$(CC) $(LFLAGS)
 
-all: clean mouseinjector
+all: clean
+	$(MAKE) mouseinjector
 
 # use different UI files and dll name for perfect dark decomp
 RCFILE=$(UIDIR)ui.rc
@@ -61,7 +69,7 @@ endif
 $(OBJDIR)maindll.o: $(SRCDIR)maindll.c $(SRCDIR)global.h $(SRCDIR)maindll.h $(SRCDIR)device.h $(SRCDIR)discord.h $(RCFILE) $(RESOURCEFILE) $(SRCDIR)vkey.h
 	$(CC) -c $(SRCDIR)maindll.c -o $(OBJDIR)maindll.o $(CFLAGS) $(WARNINGS) -Wno-unused-parameter
 
-$(OBJDIR)device.o: $(SRCDIR)device.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(MANYMOUSEDIR)manymouse.h $(GAMESDIR)game.h
+$(OBJDIR)device.o: $(SRCDIR)freefly_trace.h $(SRCDIR)device.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(MANYMOUSEDIR)manymouse.h $(GAMESDIR)game.h
 	$(CC) -c $(SRCDIR)device.c -o $(OBJDIR)device.o $(CFLAGS) $(WARNINGS)
 
 $(OBJDIR)discord.o: $(SRCDIR)discord.c $(SRCDIR)global.h $(SRCDIR)discord.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
@@ -73,13 +81,13 @@ $(OBJDIR)manymouse.o: $(MANYMOUSEDIR)manymouse.c $(MANYMOUSEDIR)manymouse.h
 $(OBJDIR)windows_wminput.o: $(MANYMOUSEDIR)windows_wminput.c $(MANYMOUSEDIR)manymouse.h
 	$(CC) -c $(MANYMOUSEDIR)windows_wminput.c -o $(OBJDIR)windows_wminput.o $(CFLAGS)
 
-$(OBJDIR)game.o: $(GAMESDIR)game.c $(GAMESDIR)game.h
+$(OBJDIR)game.o: $(GAMESDIR)game.c $(GAMESDIR)game.h $(GAMESDIR)native_input.h $(SRCDIR)global.h $(SRCDIR)maindll.h
 	$(CC) -c $(GAMESDIR)game.c -o $(OBJDIR)game.o $(CFLAGS) $(WARNINGS)
 
-$(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
+$(OBJDIR)goldeneye.o: $(GAMESDIR)goldeneye.mapmaker16.h $(GAMESDIR)goldeneye.freeflytrace.h $(GAMESDIR)goldeneye.freeflyreport.h $(GAMESDIR)goldeneye.reload.h $(GAMESDIR)goldeneye.reload24.h $(GAMESDIR)goldeneye.c $(GAMESDIR)goldeneye.mapmenu.h $(GAMESDIR)goldeneye.menunav.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)goldeneye.c -o $(OBJDIR)goldeneye.o $(CFLAGS) $(WARNINGS)
 
-$(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
+$(OBJDIR)perfectdark.o: $(GAMESDIR)perfectdark.c $(GAMESDIR)perfectdark.h $(GAMESDIR)perfectdark.compat.h $(GAMESDIR)perfectdark.signatures.h $(GAMESDIR)perfectdark.beta_reload.h $(GAMESDIR)perfectdark.beta_aim.h $(SRCDIR)global.h $(SRCDIR)device.h $(SRCDIR)maindll.h $(GAMESDIR)game.h $(GAMESDIR)memory.h
 	$(CC) -c $(GAMESDIR)perfectdark.c -o $(OBJDIR)perfectdark.o $(CFLAGS) $(WARNINGS)
 
 $(OBJDIR)ui.res: $(RCFILE) $(RESOURCEFILE)

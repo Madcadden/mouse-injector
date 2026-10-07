@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "repo": "Madcadden/mouse-injector",
+  "branch": "automatic-mod-compatibility",
+  "kind": "injector",
+  "before_latest_release_id": 396010717,
+  "targets": [
+    {
+      "before_file": "release/pd-beta/before-v0.3.2.json",
+      "tag_object": {
+        "sha": "3a3d80d81bb0fac99d35e24319d12537f99f04ee",
+        "type": "commit",
+        "url": "https://api.github.com/repos/Madcadden/mouse-injector/git/commits/3a3d80d81bb0fac99d35e24319d12537f99f04ee"
+      },
+      "name": "Mouse Injector v0.3.2 - Perfect Dark beta and Plus 2.4 support",
+      "body_file": "release/pd-beta/body-v0.3.2.md",
+      "make_latest": true,
+      "payloads": [
+        {
+          "name": "Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip",
+          "path": "release/pd-beta/payloads/Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip",
+          "sha256": "a191f1e81f6e3750b6c414313990c12600009dfd0f664aa754d9be7e2479873d",
+          "zip_members": {
+            "Mouse_Injector.dll": "968c4b9ae71f98733ef9a6523086df0890d2267c33795747eaa2bdb175ca0929"
+          }
+        },
+        {
+          "name": "Mouse-Injector-PD-Beta-Source.zip",
+          "path": "release/pd-beta/payloads/Mouse-Injector-PD-Beta-Source.zip",
+          "sha256": "6c1ab8bb4ea324c9f63c204de441d5a49fe8bdbfa554b3cbbf0711454f7452cf"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "path": "release/pd-beta/payloads/SHA256SUMS-v0.3.2.txt",
+          "sha256": "48299d3afb757ca3de3588f7286a5f4ce7192946ef13fad7a550eb0874e0c735"
+        }
+      ]
+    }
+  ]
+}

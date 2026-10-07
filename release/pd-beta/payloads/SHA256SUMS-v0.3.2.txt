@@ -1,0 +1,3 @@
+a191f1e81f6e3750b6c414313990c12600009dfd0f664aa754d9be7e2479873d  Mouse-Injector-Automatic-Mod-Compatibility-v0.3.2.zip
+6c1ab8bb4ea324c9f63c204de441d5a49fe8bdbfa554b3cbbf0711454f7452cf  Mouse-Injector-PD-Beta-Source.zip
+968c4b9ae71f98733ef9a6523086df0890d2267c33795747eaa2bdb175ca0929  Mouse_Injector.dll

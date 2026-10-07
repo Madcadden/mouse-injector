@@ -1,66 +1,73 @@
-# MouseInjector Plugin for 1964GEPD
+# Mouse Injector for 1964 GEPD
 
-## Current Auto-Mod Edition
+**[Download Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)** · **[Current source](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility)**
 
-**[Download Mouse Injector v0.3.2](https://github.com/Madcadden/mouse-injector/releases/tag/automatic-mod-compatibility-v0.3.2)** · **[Current source and documentation](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility)**
+Use the normal 32-bit Windows plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**. The emulator ZIP already includes the matching DLL. The plugin appears as **Mouse Injector** in Input Settings.
 
-Use the normal plugin with **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)**, which includes the matching injector.
+The v0.3.2 download has been refreshed with the working Perfect Dark beta build and the GoldenEye Plus 2.4 free-camera fix.
 
-Pause-menu mouse navigation is enabled **only while editing in GoldenEye 007 Plus's Map Maker**. Regular gameplay watch menus use keyboard/controller navigation in every GoldenEye ROM, including Plus's Native Test Mode. Front-end, multiplayer and confirmation menu mouse controls are unchanged.
+## Latest input support
 
-The Map Maker texture-scrolling and Native Test Mode exit fixes in **[1964 GEPD Auto-Mod Edition v0.2.2](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2)** now recognize GoldenEye 007 Plus by its ROM header and follow compatible relocated code, including the newer Plus release. Install the matching `1964.exe` and `plugin/Mouse_Injector.dll` from that package, then cold-boot the ROM.
+- **Perfect Dark NTSC 6.4 and PAL 28.7 debug/beta layouts:** normal/cursor mouse aiming, EyeSpy pitch and independent interaction/reload.
+- **E = interact/open doors; R = reload** with the usual gameplay bindings, including supported Plus and beta layouts.
+- **GoldenEye Plus 2.4 Map Maker free-camera mouse look**, retaining the confirmed free-fly fix.
+- Automatic discovery of supported GoldenEye player/control, FOV, menu and reload locations, including compatible relocated code and [Murk's RandomEye-zer](https://www.moddb.com/mods/random-eye-the-true-randomizer).
+- Perfect Dark runtime, FOV/zoom and settings discovery. Unsupported cosmetic or ambiguous patch patterns are skipped.
+- Remappable D-pad and shoulder bindings, existing settings support and normal W+S input.
 
-The updated emulator also recognizes supported GoldenEye engine mods and selects GLideN64's existing `GOLDENEYE` profile, restoring split-screen rendering with framebuffer emulation enabled. This uses the `GOLDENEYE` graphics settings and texture-pack name. No ROM header editing or GLideN64 replacement is required.
+Install the matching emulator as well: its changes provide EC loaded-copy repair, PAL task handling/EEPROM settings and beta controller-polling patches. It also supplies the Plus texture-scrolling and Native Test Mode exit fixes. The EC repair leaves the ROM file on disk unchanged; PAL keeps its native timing.
 
-The current release includes GoldenEye Plus Map Maker controls, automatic mod discovery and existing settings support. Normal W+S input is retained. See the [current documentation](https://github.com/Madcadden/mouse-injector/tree/automatic-mod-compatibility) for controls and compatibility limits.
+## GoldenEye Plus Map Maker
 
-**Build the corrected current release from the `automatic-mod-compatibility` branch.** The `main` branch and documentation below describe the historical implementation; its CRC-specific detection and W+S option do not describe the current Auto-Mod release.
+Josh's **[GoldenEye 007 Plus](https://github.com/Joshua-1248/GoldenEye-007-Plus)** includes the Map Maker and expanded **1–4-player local co-op**. Online co-op is not included here.
 
----
+Defaults with the WASD input profile:
 
-## Historical main-branch documentation
+| Action | Mouse / keyboard |
+|---|---|
+| Look / move in free camera | Mouse / WASD |
+| Place or draw | Left-click / hold left-click |
+| Delete | E |
+| Rotate (N64 L shoulder) | U |
+| 2× movement speed (N64 R shoulder) | Hold O or right-click |
+| D-pad Up / Down / Left / Right | I / K / J / L |
+| Open editor menu | Enter |
+| Editor menus | Hover and left-click; right-click goes back |
 
+The active tool determines the D-pad action, including module, layer or texture selection. Click either side of Material, Music and Grid Size values to adjust them. Bindings can be changed in Input Settings. Keyboard **R is reload during gameplay**, separate from the N64 R shoulder.
 
+Mouse navigation while paused applies to Map Maker editing menus. Regular GoldenEye gameplay watch menus, including Plus's Native Test Mode, use keyboard/controller navigation. Front-end, multiplayer and confirmation menus retain their existing mouse controls. Orbit mode keeps its keyboard controls. Free-camera mouse look pauses while the editor menu is open.
 
-This is a fork with support for Perfect Dark decomp.
+Free-camera mouse look uses your sensitivity, acceleration and invert-pitch settings. Held clicks are cleared across adapted menu transitions to avoid accidental placement or firing.
 
-## Random-Eye-zer support
+## Settings and installation
 
-This fork also supports Murk-17's
-[Random-Eye-zer: The True Randomizer](https://www.moddb.com/mods/random-eye-the-true-randomizer)
-when used with a RandomEye-compatible 1964 GEPD build.
+1. Close 1964 and back up your current DLL and INI files.
+2. Install the matching [emulator update](https://github.com/Madcadden/1964GEPD/releases/tag/automatic-mod-compatibility-v0.2.2), or copy `Mouse_Injector.dll` from this standalone ZIP into its `plugin` folder if the emulator is already current.
+3. Select **Mouse Injector** as the input plugin and cold-boot the ROM. Keep your existing settings.
 
-The plugin detects RandomEye using ROM CRC `B72EDF71/C22234D1` and selects a
-separate verified address profile for:
+The normal plugin exposes the four D-pad directions and both shoulders with primary/secondary bindings. I/K/J/L and U/O are their defaults in the WASD and ESDF profiles. Existing controls and FOV are preserved; new defaults are added only where their keys are unused. Previously cleared bindings stay cleared. Back up the INI before returning to an older plugin.
 
-- Player pointers and controls
-- Camera, pause, and exit state
-- Menu page and mouse cursor coordinates
-- Tank and multiplayer state
-- Intro state
-- RandomEye's additional menu pages, including Randomiser Options
+Old save states may restore unpatched game code. No ROMs, game assets or save files are included.
 
-Retail GoldenEye, Goldfinger 64, and Perfect Dark retain their existing
-behavior. Retail-only ROM injection hacks are deliberately not written into
-RandomEye because the mod relocates that executable code; direct mouse,
-keyboard, and controller injection still works.
+## Compatibility
 
-The saved **Prevent RandomEye Debug Shortcut (W+S)** option is enabled by
-default. When forward and backward are pressed together, it gives forward
-movement priority and prevents RandomEye's debug menu from opening. Disable
-the option to restore RandomEye's original W+S shortcut.
+The Perfect Dark beta build and Plus free-fly fix have been confirmed working in gameplay. Automated checks also cover ROM signatures, input routing, patch ownership and source/build correspondence. Automatic discovery applies to recognized code layouts; missing or ambiguous matches are skipped. PD debug menus use keyboard/controller navigation.
 
-No ROMs, ROM patches, game assets, or save files are included.
+The separate speedrun and Perfect Dark decomp configurations remain source build options; the release download is the normal Windows plugin. See the [v0.3.2 release notes](docs/releases/automatic-mod-compatibility-v0.3.2.md) for hashes.
 
 ## Building
 
-`make clean` is required when builing a new Mouse Injector configuration
+Build the current prepared source from the **`automatic-mod-compatibility` branch**. The published DLL uses Zig 0.13.0:
 
-### Vanilla GE/PD
+```bash
+python3 tools/build_injector_zig.py \
+  --source . --zig /path/to/zig --output /path/to/build-output
+```
 
-`make`
+The helper records compilation input and output hashes. Use separate output directories with `--speedrun` or `--pd-decomp` for those configurations. Do not rerun the historical source-preparation scripts over the already prepared source.
 
-For a 32-bit Windows plugin from Ubuntu/WSL:
+The makefile also supports MinGW. Run `make clean` before changing configurations:
 
 ```bash
 make -f makefile clean
@@ -70,25 +77,18 @@ make -f makefile mouseinjector \
   WINDRES=i686-w64-mingw32-windres
 ```
 
-The output is `Mouse_Injector.dll`. Because 1964 GEPD is 32-bit, the DLL must
-also be built for 32-bit Windows.
+The output must be a **32-bit Windows** `Mouse_Injector.dll` because 1964 GEPD is 32-bit. `make SPEEDRUN_BUILD=1` selects the speedrun configuration; `make PD_DECOMP=1` selects the decomp configuration. Decomp modders also need the matching Mouse Injector decomp integration in their Perfect Dark project.
 
-### Vanilla GE/PD Speedrun build
+[Emulator build source](https://github.com/Madcadden/1964GEPD/tree/bf6b09853378a121719179128f4cc8dcface9957) · [Injector build source](https://github.com/Madcadden/mouse-injector/tree/eaa00c1da6e3e2923d6599a16579db53af7db5a7)
 
-`make SPEEDRUN_BUILD=1`
+## Credits
 
+Thanks to **Graslu** for 1964 GEPD and its releases/guides; **Stolen and Carnivorous** for the original Mouse Injector/GEPD work and rewrite; **Joel Middendorf (schibo) and Rice** for 1964 0.8.5; **Catherine Reprobate (NeonNyan), HackBond and Graslu** for later Perfect Dark/decomp work; **Ryan Dwyer** and the Perfect Dark decompilation contributors; and **Ryan C. Gordon and the ManyMouse contributors**.
 
-### Perfect Dark decomp build
+Thanks to **Josh (Joshua-1248)** and the **GoldenEye 007 Plus** contributors for the mod, Map Maker and expanded local co-op.
 
-`make PD_DECOMP=1`
+Auto-Mod Edition changes by **Jamie McCadden** ( ϓØŁØ ֆШΔǤǤΞƝŞ ). Thanks also to the mod, plugin and texture-pack creators.
 
-## Note for decomp modders:
+Perfect Dark's original unofficial Mouse Injector patches were written by Stolen/Carnivorous and adapted for the decomp compatibility work by Catherine Reprobate, Graslu and HackBond.
 
-Include the Perfect Dark Mouse Injector decomp branch into your Perfect Dark decomp project and build with the appropriate build flags.
-
-## Attribution
-- Perfect Dark decompilation project by Ryan Dwyer
-- Vanilla GE/PD Mouse Injector/1964GEPD by Stolen, rewritten by Carnivorous
-- Mouse Injector for Perfect Dark decomp UI, proof of concept, building from linux; by Catherine Reprobate
-- Injectable Mouse Injector "unofficial patches" for Perfect Dark originally written by Stolen/Carnivorous
-    - These unofficial patches were ported to the Perfect Dark decompilation compatability patches by Catherine Repbrobate, Graslu, and HackBond
+[Graslu's setup guide](https://www.youtube.com/watch?v=8mL0I__VMec) · [Upstream 1964 GEPD](https://github.com/Graslu/1964GEPD)

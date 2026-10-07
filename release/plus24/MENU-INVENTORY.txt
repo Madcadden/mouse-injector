@@ -1,0 +1,21 @@
+Plus 2.4 frontend mapping derived from actual ROM dispatch tables
+
+0–26: established frontend/gameplay states. 11 is gameplay; 23 noninteractive.
+27: multiplayer settings; native cursor/button behavior.
+28: per-player options; native cursor/button behavior.
+29: Map Maker chooser; new native cursor hit testing.
+30: Map Maker editor; separate Free Fly/preview camera and 16-row editing menu.
+31: Level Modifiers category; native cursor hit testing.
+32: Level Modifiers levels; native cursor hit testing, two columns for SP.
+33: Level Modifiers details; native selection/count helpers.
+34–37: added option pages, each with its own native cursor/button handler.
+
+Input handler virtual addresses (disassembly, not an injector address table):
+29 80624864; 30 80624D80; 31 80622FAC; 32 806233C4; 33 80623D10;
+34 80621934; 35 80621E2C; 36 806228FC; 37 806224E8.
+
+The candidate writes the validated common cursor coordinates for native pages
+and lets the ROM process hover/actions. It does not apply the old row selectors
+or generate synthetic directional gestures on these added pages.
+The complete per-row visual/disabled-item/scroll/confirmation matrix has NOT
+been interactively verified. Native menu routine simulation was inconclusive.

@@ -19,8 +19,12 @@
 //==========================================================================
 #include <stdlib.h>
 #include "game.h"
+#include "../global.h"
+#include "../maindll.h"
+#include "native_input.h"
 
 extern const GAMEDRIVER *GAME_GOLDENEYE007;
+extern void GE_InputLost(void);
 extern const GAMEDRIVER *GAME_PERFECTDARK;
 
 static const GAMEDRIVER **GAMELIST[] =
@@ -46,6 +50,7 @@ int GAME_Status(void)
 	{
 		if(CURRENT_GAME->Status()) // check if game is still active, else check every supported driver
 			return 1;
+		GE_InputLost();
 		CURRENT_GAME = NULL;
 	}
 	const GAMEDRIVER *THIS_GAME;
@@ -73,13 +78,22 @@ void GAME_Inject(void)
 {
 	if(CURRENT_GAME != NULL)
 		CURRENT_GAME->Inject();
+	else
+		GAME_NativeInput();
 }
 //==========================================================================
 // Purpose: quit game driver
 //==========================================================================
 void GAME_Quit(void)
 {
-	if(CURRENT_GAME != NULL)
-		CURRENT_GAME->Quit();
+	/* A failed Status() clears CURRENT_GAME, but either driver may still
+	 * retain a ROM scan result. Reset all drivers on every ROM close. */
+	for(int i = 0; i < upper; i++)
+	{
+		const GAMEDRIVER *driver = *GAMELIST[i];
+		if(driver != NULL)
+			driver->Quit();
+	}
 	CURRENT_GAME = NULL;
+	GAME_ClearInput();
 }
